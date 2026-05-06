@@ -1,206 +1,306 @@
 "use client";
 
-import Image from "next/image";
+// Use plain <img> for recommended offers to avoid next/image host config issues
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { getAllAds, getIWantPreference, getRecommendedDeals } from "../lib/api";
+import { useAuth } from "../context/AuthContext";
+import { getNearbyOffers } from "../lib/api";
 
-const fallbackDeals = [
-  { title: "50% Off Pizza", img: "deal1.jpg", discount: "Flat 50% OFF" },
-  { title: "Luxury Spa Package", img: "deal2.jpg", discount: "Save $30 Today" },
-  { title: "Gym Membership", img: "deal3.jpg", discount: "Only $25/month" },
-  { title: "Weekend Getaway", img: "deal4.jpg", discount: "Up to 40% OFF" },
-];
+const GLOCAL_CATEGORY_ID_TO_LABEL = {
+  "food-restaurants": "Food & Restaurants",
+  "home-services": "Home Services",
+  "beauty-wellness": "Beauty & Wellness",
+  "healthcare-medical": "Healthcare & Medical",
+  "hotels-accommodation": "Hotels & Accommodation",
+  "shopping-retail": "Shopping & Retail",
+  "education-training": "Education & Training",
+  "real-estate": "Real Estate",
+  "events-entertainment": "Events & Entertainment",
+  "professional-services": "Professional Services",
+  "automotive-services": "Automotive Services",
+  "home-improvement": "Home Improvement",
+  "fitness-sports": "Fitness & Sports",
+  "daily-needs": "Daily Needs & Utilities",
+  "local-businesses-vendors": "Local Businesses & Vendors",
+};
 
-function getDisplayPrice(ad) {
-  const candidates = [
-    ad?.price,
-    ad?.categorySpecificData?.price,
-    ad?.categorySpecificData?.rent,
-    ad?.categorySpecificData?.askingPrice,
-    ad?.categorySpecificData?.rentAmount,
-    ad?.categorySpecificData?.fees,
-    ad?.categorySpecificData?.pricePerPerson,
-    ad?.categorySpecificData?.consultationFee,
-    ad?.categorySpecificData?.charges,
-  ];
+function resolveGolocalCategoryLabel(value) {
+  const rawValue = String(value || "").trim();
+  if (!rawValue) return "";
 
-  for (const value of candidates) {
-    if (typeof value === 'number' && Number.isFinite(value) && value > 0) return value;
-    if (typeof value === 'string') {
-      const normalized = value.replace(/[^0-9.]/g, '');
-      const parsed = Number(normalized);
-      if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  return GLOCAL_CATEGORY_ID_TO_LABEL[rawValue] || rawValue;
+}
+
+function normalizeForKey(value) {
+  return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+function normalizeRecommendationCategory(value) {
+  return normalizeForKey(value);
+}
+
+function getRecommendedCacheKey(userEmail) {
+  const normalizedEmail = String(userEmail || "").trim().toLowerCase();
+  return normalizedEmail ? `golo_recommended_deals_${normalizedEmail}` : "golo_recommended_deals_guest";
+}
+
+function loadRecommendedCache(userEmail) {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const raw = localStorage.getItem(getRecommendedCacheKey(userEmail));
+    if (!raw) return [];
+
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveRecommendedCache(userEmail, deals) {
+  if (typeof window === "undefined") return;
+
+  try {
+    localStorage.setItem(getRecommendedCacheKey(userEmail), JSON.stringify(deals));
+  } catch {
+    // Ignore cache write failures.
+  }
+}
+
+function getStoredGolocalCategories(userEmail) {
+  if (typeof window === "undefined") return [];
+
+  const keys = [];
+  const normalizedEmail = String(userEmail || "").trim().toLowerCase();
+  if (normalizedEmail) {
+    keys.push(`golo_golocal_selected_categories_email_${normalizedEmail}`);
+  }
+  keys.push("golo_golocal_selected_categories");
+
+  const collected = [];
+  const seen = new Set();
+
+  for (const key of keys) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) continue;
+
+      for (const item of parsed) {
+        const label = resolveGolocalCategoryLabel(item);
+        const dedupeKey = normalizeRecommendationCategory(label);
+        if (!label || seen.has(dedupeKey)) continue;
+        seen.add(dedupeKey);
+        collected.push(label);
+      }
+
+      if (collected.length > 0) {
+        break;
+      }
+    } catch {
+      // Ignore malformed localStorage payloads and fall back below.
     }
   }
 
-  return 0;
-}
-
-function tokenize(value) {
-  return String(value || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9&\s-]/g, " ")
-    .split(/\s+/)
-    .filter(Boolean);
-}
-
-function normalizeCategory(value) {
-  const normalized = String(value || "")
-    .toLowerCase()
-    .replace("electronics & home appliances", "electronics & home appliances")
-    .replace("electronics & home appliances", "electronics & home appliances")
-    .replace(/\s*-\s*/g, "|")
-    .trim();
-
-  if (normalized === "electronics & home appliances") {
-    return "electronics & home appliances";
-  }
-  return normalized;
-}
-
-function getIntentParts(intentCategory) {
-  const normalized = normalizeCategory(intentCategory);
-  const [main = "", sub = ""] = normalized.split("|");
-  return { main, sub };
-}
-
-function normalizeBackendCategory(mainCategory) {
-  if (mainCategory === "electronics & home appliances") {
-    return "Electronics & Home appliances";
-  }
-  return mainCategory
-    .split(" ")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ")
-    .replace("&", "&");
-}
-
-function adMatchesIntentSub(ad, intentSub) {
-  if (!intentSub) return true;
-
-  const normalizedIntentSub = intentSub.toLowerCase();
-  const subCandidates = [
-    ad?.subCategory,
-    ad?.categorySpecificData?.type,
-    ad?.categorySpecificData?.listingType,
-    ad?.categorySpecificData?.tributeType,
-  ]
-    .filter(Boolean)
-    .map((item) => String(item).toLowerCase());
-
-  const synonymMap = {
-    sell: ["sell", "buy"],
-    buy: ["sell", "buy"],
-    rent: ["rent"],
-    greetings: ["greetings"],
-    tributes: ["tributes"],
-    promotion: ["promotion"],
-  };
-
-  const acceptable = synonymMap[normalizedIntentSub] || [normalizedIntentSub];
-  return subCandidates.some((candidate) => acceptable.includes(candidate));
-}
-
-function scoreAdByIntent(ad, intent) {
-  if (!intent) return 0;
-
-  const adCategory = normalizeCategory(ad?.category);
-  const intentCategory = normalizeCategory(intent?.category);
-
-  const intentMainCategory = intentCategory.split("|")[0];
-  const adMainCategory = adCategory.split("|")[0];
-
-  let score = 0;
-
-  if (intentCategory && adCategory && adCategory === intentCategory) score += 5;
-  else if (intentMainCategory && adMainCategory && adMainCategory === intentMainCategory) score += 3;
-
-  const adText = `${ad?.title || ""} ${ad?.description || ""}`.toLowerCase();
-  const words = [...new Set([...(tokenize(intent?.title)), ...(tokenize(intent?.description))])];
-  if (words.length) {
-    for (const word of words) {
-      if (word.length >= 3 && adText.includes(word)) score += 1;
-    }
-  }
-
-  return score;
+  return collected;
 }
 
 export default function Recommended() {
   const router = useRouter();
-  const [deals, setDeals] = useState(fallbackDeals);
+  const { user, loading } = useAuth();
+  const [deals, setDeals] = useState([]);
+  const [fetchState, setFetchState] = useState("loading");
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const buildDealCards = (offers = []) => {
+    const seenIds = new Set();
+    const mapped = [];
+
+    for (const offer of offers) {
+      const id = String(offer.offerId || offer._id || "");
+      if (!id || seenIds.has(id)) continue;
+      seenIds.add(id);
+
+      mapped.push({
+        id,
+        title: offer.title || offer.dealName || "Untitled Deal",
+        img: offer.imageUrl || offer.images?.[0] || offer.image || "/images/deal1.jpg",
+        discount: offer.discount ? `${offer.discount}% OFF` : offer.discountText || "Special Offer",
+        description: offer.description || "",
+        isFromApi: true,
+      });
+    }
+
+    return mapped.slice(0, 4);
+  };
+
+  const commitOffers = (offers, userEmail) => {
+    const nextDeals = buildDealCards(offers);
+    setDeals(nextDeals);
+    setFetchState(nextDeals.length > 0 ? "success" : "empty");
+    saveRecommendedCache(userEmail, nextDeals);
+    return nextDeals;
+  };
 
   useEffect(() => {
+    if (loading) return;
+
+    let cancelled = false;
+    let intervalId = null;
+
     async function fetchRecommended() {
-      try {
-        let intent = null;
-        try {
-          const prefRes = await getIWantPreference();
-          if (prefRes?.success && prefRes?.data) {
-            intent = prefRes.data;
-          }
-        } catch {
-          intent = null;
+      const currentUserEmail = user?.email;
+
+      if (!cancelled) {
+        const cachedDeals = loadRecommendedCache(currentUserEmail);
+        if (cachedDeals.length > 0) {
+          setDeals(cachedDeals);
+          setFetchState("success");
+          setIsRefreshing(true);
+        } else {
+          setFetchState("loading");
+          setIsRefreshing(false);
         }
+      }
 
-        let selectedAds = [];
+      try {
+        const storedCategoryIds = getStoredGolocalCategories(currentUserEmail);
+        const allOffers = [];
+        const seenIds = new Set();
 
-        // If I Want preference exists, force recommendations from that preference first.
-        if (intent?.category) {
-          const { main, sub } = getIntentParts(intent.category);
-          const backendCategory = normalizeBackendCategory(main);
+        console.log("[Recommended] Stored GOLOCAL category IDs:", storedCategoryIds);
 
-          const categoryResponse = await getAllAds({
-            page: 1,
-            limit: 80,
-            category: backendCategory,
-            sortBy: "createdAt",
-            sortOrder: "desc",
+        if (storedCategoryIds && storedCategoryIds.length > 0) {
+          const categoryPromises = storedCategoryIds.map(async (categoryId) => {
+            try {
+              const categoryLabel = resolveGolocalCategoryLabel(categoryId);
+
+              if (!categoryLabel) {
+                console.warn(`[Recommended] Unknown category ID: ${categoryId}`);
+                return;
+              }
+
+              console.log(`[Recommended] Fetching offers for category: ${categoryLabel} (ID: ${categoryId})`);
+
+              const response = await getNearbyOffers({
+                category: categoryLabel,
+                limit: 25,
+                page: 1,
+                activeNowOnly: true,
+              });
+
+              const rows = response?.success && Array.isArray(response?.data) ? response.data : [];
+
+              for (const offer of rows) {
+                const offerId = String(offer.offerId || offer._id || "");
+                if (!offerId || seenIds.has(offerId)) continue;
+
+                seenIds.add(offerId);
+                allOffers.push(offer);
+
+                if (!cancelled) {
+                  const sortedOffers = [...allOffers].sort(
+                    (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime(),
+                  );
+                  commitOffers(sortedOffers, currentUserEmail);
+                  setIsRefreshing(true);
+                }
+              }
+            } catch (err) {
+              console.warn(`[Recommended] Error fetching offers for category ${categoryId}:`, err);
+            }
           });
 
-          if (categoryResponse?.success && Array.isArray(categoryResponse?.data)) {
-            const categoryAds = [...categoryResponse.data];
+          await Promise.allSettled(categoryPromises);
 
-            const strictSubMatches = categoryAds.filter((ad) => adMatchesIntentSub(ad, sub));
-            let prioritized = strictSubMatches;
+          if (allOffers.length > 0) {
+            const sortedOffers = [...allOffers].sort(
+              (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime(),
+            );
 
-            // If strict subcategory has fewer results, use same category ads (still preference-aligned).
-            if (prioritized.length < 4) {
-              prioritized = categoryAds;
+            if (!cancelled) {
+              commitOffers(sortedOffers, currentUserEmail);
+              setIsRefreshing(false);
             }
-
-            prioritized.sort((a, b) => scoreAdByIntent(b, intent) - scoreAdByIntent(a, intent));
-            selectedAds = prioritized.slice(0, 4);
+            return;
           }
         }
 
-        // Fallback only when no I Want-driven list found.
-        if (selectedAds.length === 0) {
-          const response = await getRecommendedDeals(20);
-          if (response.success && response.data?.length > 0) {
-            selectedAds = [...response.data].slice(0, 4);
+        console.log('[Recommended] No category-based offers found or no categories selected. Trying general offers...');
+
+        try {
+          const generalResponse = await getNearbyOffers({
+            limit: 20,
+            page: 1,
+            activeNowOnly: true,
+          });
+
+          if (generalResponse?.success && Array.isArray(generalResponse?.data) && generalResponse.data.length > 0) {
+            if (!cancelled) {
+              commitOffers(generalResponse.data.slice(0, 4), currentUserEmail);
+              setIsRefreshing(false);
+            }
+            return;
           }
+        } catch (err) {
+          console.warn('[Recommended] Failed to fetch general offers:', err);
         }
 
-        if (selectedAds.length > 0) {
-          setDeals(
-            selectedAds.map((ad) => ({
-              id: ad.adId || ad._id,
-              title: ad.title,
-              img: ad.images?.[0] || "deal1.jpg",
-              discount: ad.negotiable ? "Negotiable" : `₹${getDisplayPrice(ad)}`,
-              description: ad.description,
-              isFromApi: true,
-            }))
-          );
+        if (!cancelled) {
+          setDeals([]);
+          setFetchState("empty");
+          setIsRefreshing(false);
         }
-      } catch {
-        // Fallback to mock data
+      } catch (err) {
+        console.error('[Recommended] Unexpected error:', err);
+        if (!cancelled) {
+          setDeals([]);
+          setFetchState("error");
+          setIsRefreshing(false);
+        }
       }
     }
+
+    // initial fetch
     fetchRecommended();
-  }, []);
+
+    // re-fetch when window gains focus (user returns to tab)
+    function handleVisibility() {
+      if (document.visibilityState === 'visible') {
+        fetchRecommended();
+      }
+    }
+
+    function handleWindowFocus() {
+      fetchRecommended();
+    }
+
+    // storage event from other tabs (e.g., onboarding updated categories)
+    function handleStorage() {
+      fetchRecommended();
+    }
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleWindowFocus);
+    window.addEventListener('storage', handleStorage);
+
+    // poll every 60 seconds to keep recommendations fresh
+    try {
+      intervalId = setInterval(() => {
+        fetchRecommended();
+      }, 60000);
+    } catch {}
+
+    return () => {
+      cancelled = true;
+      if (intervalId) clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleWindowFocus);
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, [loading, user?.email]);
 
   return (
     <section className="py-16 theme-section">
@@ -212,66 +312,81 @@ export default function Recommended() {
             Recommended Deals
           </h2>
 
-          <button 
-            className="theme-button-accent px-4 py-2 rounded-full text-sm transition"
-            suppressHydrationWarning={true}
-          >
-            View More →
-          </button>
+          <div className="flex items-center gap-3">
+            {isRefreshing ? <span className="text-xs font-medium text-gray-500">Refreshing...</span> : null}
+            <button 
+              className="theme-button-accent px-4 py-2 rounded-full text-sm transition"
+              suppressHydrationWarning={true}
+            >
+              View More →
+            </button>
+          </div>
         </div>
 
         {/* Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {deals.map((deal, i) => (
-            <div
-              key={deal.id || i}
-              onClick={() => deal.id && router.push(`/product/${deal.id}`)}
-              className="group rounded-xl shadow-md p-4 transition-all duration-300 theme-card hover:-translate-y-2 hover:shadow-xl"
-            >
-              {/* Image */}
-              <div className="overflow-hidden rounded-lg">
-                <Image
-                  src={deal.isFromApi ? deal.img : `/images/${deal.img}`}
-                  width={300}
-                  height={200}
-                  alt={deal.title}
-                  className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
-                  unoptimized={deal.isFromApi}
-                />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {fetchState === "loading" ? (
+            Array.from({ length: 4 }).map((_, index) => (
+              <div key={index} className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+                <div className="h-36 w-full animate-pulse bg-gray-200" />
+                <div className="p-3 space-y-3">
+                  <div className="h-4 w-3/4 animate-pulse rounded bg-gray-200" />
+                  <div className="h-3 w-full animate-pulse rounded bg-gray-200" />
+                  <div className="h-3 w-2/3 animate-pulse rounded bg-gray-200" />
+                  <div className="h-9 w-full animate-pulse rounded-lg bg-gray-200" />
+                </div>
               </div>
-
-              {/* Content */}
-              <h3 className="mt-4 font-semibold theme-heading">
-                {deal.title}
-              </h3>
-
-              <p
-                className="text-sm mt-1"
-                style={{ color: "var(--color-text-muted)" }}
-              >
-                {deal.description || "Discover amazing deals near you."}
-              </p>
-
-              <p
-                className="text-sm font-medium mt-2"
-                style={{ color: "var(--color-accent)" }}
-              >
-                {deal.discount}
-              </p>
-
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  if (deal.id) router.push(`/product/${deal.id}`);
-                }}
-                className="mt-4 px-4 py-2 rounded-full w-full theme-button-accent transition"
-                suppressHydrationWarning={true}
-              >
-                View Deal
-              </button>
+            ))
+          ) : fetchState === "error" ? (
+            <div className="col-span-full rounded-xl border border-red-200 bg-red-50 p-6 text-center text-sm text-red-700">
+              Live recommendations are unavailable right now. Showing no static fallback.
             </div>
-          ))}
+          ) : fetchState === "empty" || deals.length === 0 ? (
+            <div className="col-span-full rounded-xl border border-gray-200 bg-white p-6 text-center text-sm text-gray-500">
+              No live recommended deals found for your selected categories.
+            </div>
+          ) : (
+            deals.map((deal, i) => (
+              <article
+                key={deal.id || i}
+                onClick={() => deal.id && router.push(`/nearby-deals/deal?offerId=${encodeURIComponent(deal.id)}`)}
+                className="group overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[#157A4F] hover:shadow-lg"
+              >
+                <div className="relative h-36 w-full overflow-hidden bg-gray-100">
+                  <img
+                    src={deal.img}
+                    alt={deal.title}
+                    className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                    loading="lazy"
+                    onError={(event) => {
+                      event.currentTarget.src = "/images/deal2.avif";
+                    }}
+                  />
+                  <span className="absolute left-2 top-2 rounded-full bg-gradient-to-r from-[#157A4F] to-[#28A745] px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
+                    Recommended
+                  </span>
+                </div>
+
+                <div className="p-3">
+                  <h3 className="line-clamp-1 text-sm font-bold text-gray-900">{deal.title}</h3>
+                  <p className="mt-1 text-[11px] text-gray-500 line-clamp-2">
+                    {deal.description || "Discover live deals near you."}
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-[#157A4F]">{deal.discount}</p>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (deal.id) router.push(`/nearby-deals/deal?offerId=${encodeURIComponent(deal.id)}`);
+                    }}
+                    className="mt-3 w-full rounded-lg border border-gray-200 bg-[#F7F7F7] py-2 text-xs font-bold text-gray-800 transition-colors duration-200 hover:border-[#157A4F] hover:bg-[#157A4F] hover:text-white"
+                  >
+                    View Deal
+                  </button>
+                </div>
+              </article>
+            ))
+          )}
         </div>
       </div>
     </section>

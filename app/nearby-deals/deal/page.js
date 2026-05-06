@@ -47,6 +47,41 @@ function getTimeRemaining(endDate) {
   return { expired: false, days, hours, minutes };
 }
 
+// SafeImage: use next/image for normal remote/relative URLs, but fall back
+// to a plain <img> for file://, blob:, and data: URIs which Next Image
+// cannot handle without configuring remotePatterns in next.config.js.
+function isLocalUri(src) {
+  return typeof src === "string" && (
+    src.startsWith("file:") || src.startsWith("blob:") || src.startsWith("data:")
+  );
+}
+
+function SafeImage({ src, alt = "", fill = false, width, height, className, unoptimized = false, style, ...rest }) {
+  const safeSrc = src || "";
+  if (isLocalUri(safeSrc)) {
+    // Render a regular img for local file URIs. When using `fill` emulate
+    // object-fit via inline styles so it behaves like next/image fill.
+    const inlineStyle = fill
+      ? { width: "100%", height: "100%", objectFit: "cover", display: "block", ...(style || {}) }
+      : { display: "block", ...(style || {}) };
+
+    return <img src={safeSrc} alt={alt} className={className} style={inlineStyle} {...rest} />;
+  }
+
+  // Otherwise use Next.js Image which benefits from optimization
+  return (
+    <Image
+      src={safeSrc}
+      alt={alt}
+      {...(fill ? { fill: true } : { width, height })}
+      className={className}
+      unoptimized={unoptimized}
+      style={style}
+      {...rest}
+    />
+  );
+}
+
 function formatDate(dateValue) {
   if (!dateValue) return "-";
   const date = new Date(dateValue);
@@ -588,7 +623,7 @@ function NearbyDealDetailsContent() {
           <div className="grid lg:grid-cols-[1.5fr_1fr] gap-6 p-4 lg:p-6">
             {/* Image */}
             <div className="relative overflow-hidden rounded-xl bg-[#f0f0f0]">
-              <Image
+              <SafeImage
                 src={offer?.imageUrl || "/images/deal2.avif"}
                 alt={offer?.title || "Offer"}
                 width={600}
@@ -804,7 +839,7 @@ function NearbyDealDetailsContent() {
                         title="View product details"
                       >
                         <div className="relative h-16 w-16 overflow-hidden rounded-lg border border-[#e5e7eb] bg-[#f3f4f6]">
-                          <Image
+                          <SafeImage
                             src={
                               item?.imageUrl || "/images/deal2.avif"
                             }
@@ -879,7 +914,7 @@ function NearbyDealDetailsContent() {
           <section className="bg-white rounded-2xl p-6 h-fit border border-[#e5e7eb]">
             <div className="flex gap-3 mb-4">
               <div className="w-12 h-12 rounded-full overflow-hidden bg-[#f0f0f0] flex-shrink-0">
-                <Image
+                <SafeImage
                   src={
                     offer?.merchant?.profilePhoto || "/images/place2.avif"
                   }

@@ -32,9 +32,9 @@ export async function submitUserReport(userId, reason, description) {
 
 const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL?.trim();
 const NORMALIZED_REMOTE_API_URL = RAW_API_URL ? RAW_API_URL.replace(/\/$/, '') : '';
-const BASE_URL = typeof window !== 'undefined'
-    ? '/api'
-    : (NORMALIZED_REMOTE_API_URL || '/api');
+// Prefer the real backend URL when it is configured so browser requests do not
+// depend on the Next.js rewrite proxy in development.
+const BASE_URL = NORMALIZED_REMOTE_API_URL || '/api';
 const PUBLIC_AUTH_ENDPOINTS = new Set([
     '/users/login',
     '/users/register',

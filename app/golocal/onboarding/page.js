@@ -76,6 +76,10 @@ export default function GolocalOnboardingPage() {
     const normalizedEmail = String(user?.email || "").trim().toLowerCase();
     if (normalizedEmail) {
       localStorage.setItem(`golo_golocal_onboarding_done_email_${normalizedEmail}`, "1");
+      localStorage.setItem(
+        `golo_golocal_selected_categories_email_${normalizedEmail}`,
+        JSON.stringify(selected),
+      );
     }
     localStorage.removeItem("golo_pending_first_login_email");
     localStorage.setItem("golo_golocal_selected_categories", JSON.stringify(selected));
