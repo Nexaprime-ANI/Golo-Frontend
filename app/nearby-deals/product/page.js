@@ -15,12 +15,16 @@ import {
 } from "lucide-react";
 import Navbar from "../../components/Navbar";
 import Footer from "../../components/Footer";
+import { useAuth } from "../../context/AuthContext";
 import {
   getMerchantProductById,
   getNearbyOfferDetails,
   getPublicMerchantProductById,
   getPublicMerchantProducts,
   getPublicMerchantProfile,
+  toggleWishlist,
+  getWishlistIds,
+  getAdWishlistCount,
 } from "../../lib/api";
 
 export default function ProductDetailPage() {
@@ -94,9 +98,8 @@ function ProductDetailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const offerId = searchParams.get("offerId") || "";
-  const merchantId = searchParams.get("merchantId") || "";
-  const productId = searchParams.get("productId") || "";
+  // Only accept productId from URL - everything else comes from backend
+  const productId = searchParams.get("id") || "";
 
   const [product, setProduct] = useState(null);
   const [merchant, setMerchant] = useState(null);
@@ -104,6 +107,10 @@ function ProductDetailContent() {
   const [error, setError] = useState("");
   const [imageLoaded, setImageLoaded] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
+  const { isAuthenticated } = useAuth();
+  const [isWishlisted, setIsWishlisted] = useState(false);
+  const [isTogglingWishlist, setIsTogglingWishlist] = useState(false);
+  const [wishlistCount, setWishlistCount] = useState(null);
 
   useEffect(() => {
     if (!productId) {
@@ -169,24 +176,7 @@ function ProductDetailContent() {
           }
         }
 
-        if (!productData && offerId) {
-          try {
-            const offerRes = await getNearbyOfferDetails(offerId);
-            const selected = Array.isArray(offerRes?.data?.selectedProducts)
-              ? offerRes.data.selectedProducts
-              : [];
-            const matched = selected.find((item) => {
-              const id = String(item?._id || item?.id || item?.productId || "");
-              return id === String(productId);
-            });
-            if (matched) {
-              productData = matched;
-              gotLiveData = true;
-            }
-          } catch {
-            productData = null;
-          }
-        }
+        // productData will be fetched from backend APIs only
 
         if (!productData) {
           throw new Error(
@@ -202,16 +192,7 @@ function ProductDetailContent() {
           }
         }
 
-        if (merchantId) {
-          try {
-            const merchantRes = await getPublicMerchantProfile(merchantId);
-            if (!cancelled && merchantRes?.data) {
-              setMerchant(merchantRes.data);
-            }
-          } catch {
-            // keep rendering product even if merchant profile fails
-          }
-        }
+        // Merchant data is fetched independently if product has merchant info
       } catch (err) {
         if (!cancelled) {
           setError(err?.data?.message || err?.message || "Failed to load product details");
@@ -232,7 +213,92 @@ function ProductDetailContent() {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [offerId, merchantId, productId]);
+  }, [productId]);
+
+  // Wishlist: fetch wishlist ids and wishlist count when product loads or auth changes
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchWishlistState() {
+      const wishlistTargetId = product?._id || product?.productId || productId;
+      if (!wishlistTargetId) return;
+
+      try {
+        const countRes = await getAdWishlistCount(wishlistTargetId);
+        if (!cancelled && countRes?.success) {
+          setWishlistCount(countRes.data?.wishlistCount ?? 0);
+        }
+      } catch {
+        // ignore
+      }
+
+      if (!isAuthenticated) {
+        setIsWishlisted(false);
+        return;
+      }
+
+      try {
+        const idsRes = await getWishlistIds();
+        if (!cancelled && idsRes?.success && Array.isArray(idsRes.data)) {
+          const ids = idsRes.data.map(String);
+          const found = ids.includes(String(wishlistTargetId));
+          setIsWishlisted(!!found);
+        }
+      } catch (err) {
+        console.error("Failed to fetch wishlist status:", err);
+      }
+    }
+
+    fetchWishlistState();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [product, productId, isAuthenticated]);
+
+  const handleToggleWishlist = async () => {
+    if (!isAuthenticated) {
+      router.push("/login");
+      return;
+    }
+
+    const wishlistTargetId = product?._id || product?.productId || productId;
+    if (!wishlistTargetId) return;
+
+    setIsTogglingWishlist(true);
+    try {
+      const res = await toggleWishlist(wishlistTargetId);
+      if (res?.success) {
+        const added = !!res.data?.added;
+        setIsWishlisted(added);
+        setWishlistCount((prev) => (prev === null ? null : added ? (prev || 0) + 1 : Math.max(0, (prev || 0) - 1)));
+      }
+    } catch (err) {
+      console.error('Failed to toggle wishlist:', err);
+    } finally {
+      setIsTogglingWishlist(false);
+    }
+  };
+
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: productName,
+          text: `Check out ${productName} on GOLO`,
+          url: window.location.href,
+        });
+      } catch (error) {
+        console.error("Error sharing:", error);
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(window.location.href);
+        alert("Link copied to clipboard!");
+      } catch (err) {
+        console.error("Failed to copy link:", err);
+      }
+    }
+  };
 
   const discount = useMemo(() => {
     const original = Number(product?.originalPrice || 0);
@@ -270,14 +336,6 @@ function ProductDetailContent() {
   ].filter((item) => item.value);
 
   const handleBack = () => {
-    if (offerId) {
-      router.push(`/nearby-deals/deal?offerId=${offerId}`);
-      return;
-    }
-    if (merchantId) {
-      router.push(`/nearby-deals/store?merchantId=${merchantId}`);
-      return;
-    }
     router.back();
   };
 
@@ -306,7 +364,7 @@ function ProductDetailContent() {
       <div className="mx-auto max-w-[1260px] px-4 lg:px-6 py-4 lg:py-6">
         <button onClick={handleBack} className="flex items-center gap-2 text-sm text-[#666] hover:text-[#333] mb-4 transition">
           <ArrowLeft size={16} />
-          Back to {offerId ? "Offer Details" : "Previous Page"}
+          Back to Previous Page
         </button>
 
         <p className="text-[11px] text-[#7b7b7b] mb-4">
@@ -345,11 +403,11 @@ function ProductDetailContent() {
               <div className="flex items-start justify-between gap-3 mb-3">
                 <h1 className="text-2xl lg:text-3xl font-bold text-[#1b1f24] leading-tight">{productName}</h1>
                 <div className="flex gap-2">
-                  <button className="p-2 rounded-full hover:bg-[#f0f0f0]">
+                  <button onClick={handleShare} className="p-2 rounded-full hover:bg-[#f0f0f0]" title="Share">
                     <Share2 size={20} className="text-[#666]" />
                   </button>
-                  <button className="p-2 rounded-full hover:bg-[#f0f0f0]">
-                    <Heart size={20} className="text-[#666]" />
+                  <button onClick={handleToggleWishlist} className={`p-2 rounded-full hover:bg-[#f0f0f0] ${isWishlisted ? 'bg-[#ffeef0]' : ''}`} title={isWishlisted ? 'Remove from favorites' : 'Add to favorites'}>
+                    <Heart size={20} className={`text-[#666] ${isWishlisted ? 'text-[#e11d48]' : ''}`} fill={isWishlisted ? 'currentColor' : 'none'} />
                   </button>
                 </div>
               </div>
@@ -378,8 +436,10 @@ function ProductDetailContent() {
                 <button
                   className="w-full h-12 bg-[#157a4f] text-white rounded-lg font-bold text-lg transition-all hover:bg-[#0f6a42] flex items-center justify-center gap-2"
                   onClick={() => {
-                    if (merchantId) {
-                      router.push(`/nearby-deals/store?merchantId=${merchantId}`);
+                    const merchantStoreId = product?.merchantId || product?.merchant?.merchantId || product?.merchant?._id || product?.merchant?.id;
+                    if (merchantStoreId) {
+                      sessionStorage.setItem("merchantId", merchantStoreId);
+                      router.push("/nearby-deals/store");
                     } else {
                       router.back();
                     }
@@ -402,7 +462,7 @@ function ProductDetailContent() {
               <div className="text-xs text-[#666] space-y-1">
                 <p>• Product ID: {product?._id || product?.productId || "-"}</p>
                 <p>• Merchant: {merchant?.name || product?.merchantName || "Unavailable"}</p>
-                {offerId && <p>• Special offer pricing</p>}
+                {product?.offerPrice && <p>• Discounted pricing available</p>}
               </div>
             </div>
           </div>

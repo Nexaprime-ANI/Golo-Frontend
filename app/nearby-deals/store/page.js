@@ -87,8 +87,24 @@ function NearbyStoreContent() {
   const [offers, setOffers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [merchantId, setMerchantId] = useState(null);
 
-  const merchantId = searchParams.get("merchantId");
+  // Read merchantId from sessionStorage first, fallback to searchParams
+  useEffect(() => {
+    const stored = sessionStorage.getItem("merchantId");
+    const fromUrl = searchParams.get("merchantId");
+    const id = stored || fromUrl;
+    
+    if (id) {
+      setMerchantId(id);
+      // Clear sessionStorage after reading to avoid persistence
+      if (stored) {
+        sessionStorage.removeItem("merchantId");
+      }
+    } else {
+      setMerchantId(null);
+    }
+  }, [searchParams]);
 
   const normalizeId = (value) => String(value || "").trim();
 
@@ -526,17 +542,7 @@ function NearbyStoreContent() {
                                       onClick={() => {
                                         const pid = product?.productId || product?._id || product?.id;
                                         if (pid) {
-                                          const params = new URLSearchParams({
-                                            productId: pid,
-                                            merchantId: merchantId,
-                                            productName: encodeURIComponent(product?.name || product?.productName || ""),
-                                            price: String(product?.price || product?.offerPrice || "0"),
-                                            originalPrice: String(product?.originalPrice || "0"),
-                                            imageUrl: encodeURIComponent(product?.image || product?.imageUrl || ""),
-                                            category: encodeURIComponent(product?.category || ""),
-                                            description: encodeURIComponent(product?.description || ""),
-                                          });
-                                          router.push(`/nearby-deals/product?${params.toString()}`);
+                                          router.push(`/nearby-deals/product?id=${encodeURIComponent(pid)}`);
                                         }
                                       }}
                                       className="w-full h-9 bg-[#f0f9f6] text-[#157a4f] rounded-lg font-bold text-[11px] hover:bg-[#157a4f] hover:text-white border border-[#157a4f]/5 transition-all"

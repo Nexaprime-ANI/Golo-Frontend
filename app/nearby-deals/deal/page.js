@@ -795,12 +795,8 @@ function NearbyDealDetailsContent() {
                         onClick={() =>
                           productId &&
                           router.push(
-                            `/nearby-deals/product?offerId=${encodeURIComponent(
-                              offerId
-                            )}&productId=${encodeURIComponent(
+                            `/nearby-deals/product?id=${encodeURIComponent(
                               productId
-                            )}&merchantId=${encodeURIComponent(
-                              merchantStoreId || ""
                             )}`
                           )
                         }
@@ -931,9 +927,11 @@ function NearbyDealDetailsContent() {
                   return;
                 }
 
-                router.push(
-                  `/nearby-deals/store?merchantId=${merchantStoreId}`
-                );
+                // keep sessionStorage for backward compatibility, but also pass merchantId in URL
+                sessionStorage.setItem("merchantId", merchantStoreId);
+                router.push(`/nearby-deals/store?merchantId=${encodeURIComponent(
+                  merchantStoreId
+                )}`);
               }}
               className="w-full h-10 bg-[#fef5e7] border border-[#e7a91d] text-[#8f6515] rounded-lg font-semibold text-sm hover:bg-[#fcecd8] transition"
             >

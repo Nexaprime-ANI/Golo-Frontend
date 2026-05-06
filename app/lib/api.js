@@ -648,11 +648,12 @@ export async function getMyOfferPromotions() {
         cache: 'no-store',
     });
     const rows = Array.isArray(response?.data) ? response.data : [];
-    const trackedOfferIds = readTrackedOfferPromotionIds();
 
+    // Return server-provided offer rows directly. Client-side localStorage
+    // filtering hid offers on other devices (tracked IDs are device-local).
     return {
         ...response,
-        data: rows.filter((row) => isOfferRow(row, trackedOfferIds)),
+        data: rows,
     };
 }
 

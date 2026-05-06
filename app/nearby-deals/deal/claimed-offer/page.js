@@ -607,7 +607,13 @@ function ClaimedOfferContent() {
               </div>
 
               <button
-                onClick={() => router.push(`/nearby-deals/store?merchantId=${selectedVoucher?.merchantId || ''}`)}
+                onClick={() => {
+                  const merchantStoreId = selectedVoucher?.merchantId;
+                  if (merchantStoreId) {
+                    sessionStorage.setItem("merchantId", merchantStoreId);
+                    router.push("/nearby-deals/store");
+                  }
+                }}
                 className="mt-4 h-10 w-full rounded-[8px] border border-[#e8b038] bg-[#f7ebcf] text-[12px] font-semibold text-[#8f6515] transition-colors hover:bg-[#f3dfb2]"
               >
                 View Store
