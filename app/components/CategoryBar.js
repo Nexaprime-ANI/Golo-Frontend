@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { usePathname } from "next/navigation";
 import { ChevronDown, Grid } from "lucide-react";
 import { createPortal } from "react-dom";
@@ -56,11 +56,11 @@ const golocalIconMap = {
   "Local Businesses & Vendors": "🏪",
 };
 
-export default function CategoryBar({ variant = "choja" }) {
-  return <CategoryBarContent variant={variant} />;
+export default function CategoryBar({ variant = "choja", preferredCategories = [] }) {
+  return <CategoryBarContent variant={variant} preferredCategories={preferredCategories} />;
 }
 
-function CategoryBarContent({ variant = "choja" }) {
+function CategoryBarContent({ variant = "choja", preferredCategories = [] }) {
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [showAllModal, setShowAllModal] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState(null);
@@ -105,16 +105,41 @@ function CategoryBarContent({ variant = "choja" }) {
     { name: "Local Businesses & Vendors" },
   ];
 
-  const golocalVisibleCategories = [
-    golocalCategories[0],
-    golocalCategories[1],
-    golocalCategories[2],
-    golocalCategories[3],
-    golocalCategories[4],
-    golocalCategories[5],
-    golocalCategories[7],
-  ];
-  const categoriesToRender = variant === "golocal" ? golocalVisibleCategories : mainCategories;
+   // Map backend category names to frontend display names for matching
+   const BACKEND_TO_DISPLAY_MAP = {
+     "Food & Dining": "Food & Restaurants",
+     "Beauty": "Beauty & Wellness",
+     "Healthcare": "Healthcare & Medical",
+   };
+
+   const preferredDisplaySet = useMemo(() => {
+     const set = new Set();
+     if (Array.isArray(preferredCategories) && preferredCategories.length > 0) {
+       preferredCategories.forEach(cat => {
+         const displayName = BACKEND_TO_DISPLAY_MAP[cat] || cat;
+         if (golocalCategories.some(c => c.name === displayName)) {
+           set.add(displayName);
+         }
+       });
+     }
+     return set;
+   }, [preferredCategories]);
+
+   const orderedGolocalCategories = useMemo(() => {
+     const preferred = [];
+     const others = [];
+     golocalCategories.forEach(cat => {
+       if (preferredDisplaySet.has(cat.name)) {
+         preferred.push(cat);
+       } else {
+         others.push(cat);
+       }
+     });
+     return [...preferred, ...others];
+   }, [preferredDisplaySet]);
+
+   const golocalVisibleCategories = orderedGolocalCategories.slice(0, 7);
+   const categoriesToRender = variant === "golocal" ? golocalVisibleCategories : mainCategories;
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -373,7 +398,7 @@ function CategoryBarContent({ variant = "choja" }) {
               {/* Main categories */}
               <p style={{ fontSize: "12px", fontWeight: 700, color: "#9ca3af", letterSpacing: "0.08em", marginBottom: "12px", textTransform: "uppercase" }}>Categories</p>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: "10px", marginBottom: "24px" }}>
-                {(variant === "golocal" ? golocalCategories : mainCategories).map((cat) => (
+               {(variant === "golocal" ? golocalCategories : mainCategories).map((cat) => (
                   <button
                     key={cat.name}
                     onClick={() => navigateToCategory(cat.name)}

@@ -5,14 +5,15 @@ import { useRouter } from "next/navigation";
 import { ChevronLeft, Search, Upload, X, Circle, CircleCheck } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
 import MerchantNavbar from "../../MerchantNavbar";
-import {
-  clearMyOfferTemplate,
-  getMerchantStoreLocation,
-  getMyOfferTemplate,
-  getMerchantProducts,
-  saveMyOfferTemplate,
-  submitOfferPromotionRequest,
-} from "../../../lib/api";
+ import {
+   clearMyOfferTemplate,
+   getMerchantStoreLocation,
+   getMyOfferTemplate,
+   getMerchantProducts,
+   saveMyOfferTemplate,
+   submitOfferPromotionRequest,
+   getProfile,
+ } from "../../../lib/api";
 
 const OFFER_CATEGORIES = [
   "Special",
@@ -94,18 +95,20 @@ export default function CreateMerchantOfferPage() {
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
-  const [formData, setFormData] = useState({
-    title: "",
-    category: "Special",
-    imageUrl: "",
-    startDate: "",
-    endDate: "",
-    promotionExpiryText: "",
-    loyaltyRewardEnabled: true,
-    loyaltyPointsPerPurchase: "1",
-    termsAndConditions: DEFAULT_TERMS,
-    exampleUsage: DEFAULT_EXAMPLE,
-  });
+   const [formData, setFormData] = useState({
+     title: "",
+     category: "Special",
+     imageUrl: "",
+     startDate: "",
+     endDate: "",
+     promotionExpiryText: "",
+     loyaltyRewardEnabled: true,
+     loyaltyPointsPerPurchase: "1",
+     termsAndConditions: DEFAULT_TERMS,
+     exampleUsage: DEFAULT_EXAMPLE,
+   });
+
+   const [merchantStoreCategory, setMerchantStoreCategory] = useState('');
 
   const [inventoryProducts, setInventoryProducts] = useState([]);
   const [selectedProducts, setSelectedProducts] = useState([]);
@@ -119,9 +122,12 @@ export default function CreateMerchantOfferPage() {
     if (!template) return;
 
     if (template?.formData) {
+      // Legacy templates stored 'category' as promotion type
+      const { category: oldCategory, ...rest } = template.formData;
       setFormData((prev) => ({
         ...prev,
-        ...template.formData,
+        ...rest,
+        category: oldCategory || prev.category,
         startDate: formatDateForInput(template.formData.startDate),
         endDate: formatDateForInput(template.formData.endDate),
       }));
@@ -198,29 +204,39 @@ export default function CreateMerchantOfferPage() {
       return;
     }
 
-    if (!loading && user?.accountType === "merchant") {
-      loadMerchantProducts();
-      verifyMerchantLocation();
+     if (!loading && user?.accountType === "merchant") {
+       loadMerchantProducts();
+       verifyMerchantLocation();
 
-      (async () => {
-        let apiDisabled = false;
-        try {
-          apiDisabled = localStorage.getItem(OFFER_TEMPLATE_API_DISABLED_KEY) === "1";
-        } catch {
-        }
+       // Fetch merchant profile to get store category (for display)
+       (async () => {
+         try {
+           const profileRes = await getProfile();
+           setMerchantStoreCategory(profileRes.data?.storeCategory || '');
+         } catch (err) {
+           console.warn('Could not fetch merchant store category', err);
+         }
 
-        try {
-          const templateRes = await getMyOfferTemplate();
-          const template = templateRes?.data;
-          setTemplateApiAvailable(true);
-          applyTemplate(template);
-        } catch (err) {
-          if (err?.status === 404) {
-            setTemplateApiAvailable(false);
-          }
-        }
-      })();
-    }
+         (async () => {
+           let apiDisabled = false;
+           try {
+             apiDisabled = localStorage.getItem(OFFER_TEMPLATE_API_DISABLED_KEY) === "1";
+           } catch {
+           }
+
+           try {
+             const templateRes = await getMyOfferTemplate();
+             const template = templateRes?.data;
+             setTemplateApiAvailable(true);
+             applyTemplate(template);
+           } catch (err) {
+             if (err?.status === 404) {
+               setTemplateApiAvailable(false);
+             }
+           }
+         })();
+       })();
+     }
   }, [loading, user, router]);
 
   useEffect(() => {
@@ -473,43 +489,44 @@ export default function CreateMerchantOfferPage() {
     setPreviewOpen(true);
   };
 
-  const onSubmit = async (e) => {
-    e.preventDefault();
+   const onSubmit = async (e) => {
+     e.preventDefault();
 
-    if (!validateBeforeSubmit()) {
-      return;
-    }
+     if (!validateBeforeSubmit()) {
+       return;
+     }
 
-    const selectedDates = buildSelectedDates(
-      formData.startDate,
-      formData.endDate || formData.startDate,
-    );
+     const selectedDates = buildSelectedDates(
+       formData.startDate,
+       formData.endDate || formData.startDate,
+     );
 
-    setFormSubmitting(true);
-    setError("");
-    setSuccessMessage("");
+     setFormSubmitting(true);
+     setError("");
+     setSuccessMessage("");
 
-    try {
-      await submitOfferPromotionRequest({
-        title: formData.title.trim(),
-        category: formData.category,
-        imageUrl: formData.imageUrl.trim(),
-        selectedDates,
-        totalPrice: totalOfferValue,
-        promotionExpiryText: formData.promotionExpiryText,
-        loyaltyRewardEnabled: formData.loyaltyRewardEnabled,
-        loyaltyPointsPerPurchase: Number(formData.loyaltyPointsPerPurchase || 1),
-        termsAndConditions: formData.termsAndConditions,
-        exampleUsage: formData.exampleUsage,
-        selectedProducts: selectedProducts.map((item) => ({
-          productId: item.productId,
-          productName: item.productName,
-          imageUrl: item.imageUrl || "",
-          originalPrice: Number(item.originalPrice || 0),
-          offerPrice: Number(item.offerPrice || 0),
-          stockQuantity: Number(item.stockQuantity || 0),
-        })),
-      });
+     try {
+       await submitOfferPromotionRequest({
+         title: formData.title.trim(),
+         // Promotional type used for UI filtering
+         category: formData.category,
+         imageUrl: formData.imageUrl.trim(),
+         selectedDates,
+         totalPrice: totalOfferValue,
+         promotionExpiryText: formData.promotionExpiryText,
+         loyaltyRewardEnabled: formData.loyaltyRewardEnabled,
+         loyaltyPointsPerPurchase: Number(formData.loyaltyPointsPerPurchase || 1),
+         termsAndConditions: formData.termsAndConditions,
+         exampleUsage: formData.exampleUsage,
+         selectedProducts: selectedProducts.map((item) => ({
+           productId: item.productId,
+           productName: item.productName,
+           imageUrl: item.imageUrl || "",
+           originalPrice: Number(item.originalPrice || 0),
+           offerPrice: Number(item.offerPrice || 0),
+           stockQuantity: Number(item.stockQuantity || 0),
+         })),
+       });
 
       try {
         localStorage.removeItem(OFFER_TEMPLATE_LOCAL_KEY);
@@ -609,20 +626,25 @@ export default function CreateMerchantOfferPage() {
                     <p className="mt-1 text-[11px] text-[#9a9a9a]">Automatically calculated based on campaign end date.</p>
                   </div>
 
-                  <div>
-                    <label className="mb-1 block text-[12px] font-semibold text-[#555]">Type of Offer</label>
-                    <select
-                      value={formData.category}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, category: e.target.value }))}
-                      className="h-10 w-full rounded-[8px] border border-[#dedede] bg-white px-3 text-[13px] outline-none"
-                    >
-                      {OFFER_CATEGORIES.map((item) => (
-                        <option key={item} value={item}>
-                          {item}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                   <div>
+                     <label className="mb-1 block text-[12px] font-semibold text-[#555]">Promotion Type</label>
+                      <select
+                        value={formData.category}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, category: e.target.value }))}
+                        className="h-10 w-full rounded-[8px] border border-[#dedede] bg-white px-3 text-[13px] outline-none"
+                      >
+                       {OFFER_CATEGORIES.map((item) => (
+                         <option key={item} value={item}>
+                           {item}
+                         </option>
+                       ))}
+                     </select>
+                     {merchantStoreCategory && (
+                       <p className="mt-2 text-[11px] text-[#6b7280]">
+                         This offer will be listed under <span className="font-semibold text-[#157A4F]">{merchantStoreCategory}</span> for customer recommendations.
+                       </p>
+                     )}
+                   </div>
 
                   <div>
                     <label className="mb-1 block text-[12px] font-semibold text-[#555]">Active Days</label>
@@ -945,16 +967,16 @@ export default function CreateMerchantOfferPage() {
                   {formData.imageUrl ? (
                     <img src={formData.imageUrl} alt="Offer banner" className="h-full w-full object-cover opacity-85" />
                   ) : null}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/55 to-transparent" />
-                  <div className="absolute left-0 right-0 bottom-0 p-5 text-white">
-                    <div className="flex flex-wrap items-center gap-2 mb-2">
-                      <span className="rounded-full bg-[#f0b429] px-3 py-1 text-[11px] font-semibold text-[#4f3b00]">
-                        {formData.category || "Special"}
-                      </span>
-                      <span className="rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold backdrop-blur-sm">
-                        {selectedProducts.length} Product{selectedProducts.length === 1 ? "" : "s"}
-                      </span>
-                    </div>
+                   <div className="absolute inset-0 bg-gradient-to-t from-black/55 to-transparent" />
+                   <div className="absolute left-0 right-0 bottom-0 p-5 text-white">
+                     <div className="flex flex-wrap items-center gap-2 mb-2">
+                       <span className="rounded-full bg-[#f0b429] px-3 py-1 text-[11px] font-semibold text-[#4f3b00]">
+                         {formData.category || "Special"}
+                       </span>
+                       <span className="rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold backdrop-blur-sm">
+                         {selectedProducts.length} Product{selectedProducts.length === 1 ? "" : "s"}
+                       </span>
+                     </div>
                     <h4 className="text-[28px] leading-tight font-semibold">
                       {formData.title || "Your Offer Title"}
                     </h4>
@@ -1028,12 +1050,13 @@ export default function CreateMerchantOfferPage() {
                         ? `Customers will earn ${formData.loyaltyPointsPerPurchase || 1} point(s) per redemption for this offer.`
                         : "Loyalty reward is disabled for this offer."}
                     </p>
-                    <div className="space-y-2 text-[12px]">
-                      <div className="flex justify-between"><span className="text-[#6b7280]">Category</span><span className="font-semibold text-[#111827]">{formData.category}</span></div>
-                      <div className="flex justify-between"><span className="text-[#6b7280]">Valid Days</span><span className="font-semibold text-[#111827]">{selectedDatesPreview.length}</span></div>
-                      <div className="flex justify-between"><span className="text-[#6b7280]">Loyalty Reward</span><span className="font-semibold text-[#111827]">{formData.loyaltyRewardEnabled ? "Yes" : "No"}</span></div>
-                      <div className="flex justify-between"><span className="text-[#6b7280]">Points Per Redemption</span><span className="font-semibold text-[#111827]">{formData.loyaltyPointsPerPurchase || 1}</span></div>
-                    </div>
+                     <div className="space-y-2 text-[12px]">
+                       <div className="flex justify-between"><span className="text-[#6b7280]">Business Category</span><span className="font-semibold text-[#111827]">{merchantStoreCategory || "General"}</span></div>
+                       <div className="flex justify-between"><span className="text-[#6b7280]">Promotion Type</span><span className="font-semibold text-[#111827]">{formData.category}</span></div>
+                       <div className="flex justify-between"><span className="text-[#6b7280]">Valid Days</span><span className="font-semibold text-[#111827]">{selectedDatesPreview.length}</span></div>
+                       <div className="flex justify-between"><span className="text-[6b7280]">Loyalty Reward</span><span className="font-semibold text-[#111827]">{formData.loyaltyRewardEnabled ? "Yes" : "No"}</span></div>
+                       <div className="flex justify-between"><span className="text-[#6b7280]">Points Per Redemption</span><span className="font-semibold text-[#111827]">{formData.loyaltyPointsPerPurchase || 1}</span></div>
+                     </div>
                   </div>
 
                   <div className="rounded-[14px] border border-[#f0e7d4] bg-[#fffbe8] p-5">

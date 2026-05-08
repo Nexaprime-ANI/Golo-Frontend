@@ -98,7 +98,7 @@ export default function Home() {
       `}</style>
 
       <Navbar searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
-      <CategoryBar variant="golocal" />
+       <CategoryBar variant="golocal" preferredCategories={user?.preferredCategories || []} />
 
       <Hero />
       <Discover />

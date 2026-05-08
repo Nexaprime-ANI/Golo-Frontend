@@ -200,7 +200,7 @@ function NearbyDealDetailsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
-  const { myVouchers, claimOfferHandler, loading: claimLoading } = useVoucher();
+  const { myVouchers, claimOfferHandler, loading: claimLoading, fetchMyVouchers } = useVoucher();
 
   const [offer, setOffer] = useState(null);
   const [relatedOffers, setRelatedOffers] = useState([]);
@@ -252,6 +252,18 @@ function NearbyDealDetailsContent() {
 
     setIsClaimed(hasClaimedVoucher);
   }, [offerId, myVouchers]);
+
+  // Fetch claimed vouchers when user is authenticated
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+    
+    // Fetch my vouchers to check if user has claimed this offer
+    fetchMyVouchers({ page: 1, limit: 100 }).catch(() => {
+      // Silently fail - myVouchers will just be empty or whatever was cached
+    });
+  }, [user, fetchMyVouchers]);
 
   // Handle like/unlike
   const handleToggleLike = async () => {
@@ -311,19 +323,6 @@ function NearbyDealDetailsContent() {
     }, 60000);
     return () => clearInterval(timer);
   }, [offer?.endsAt]);
-
-   // Timer for countdown
-   useEffect(() => {
-     if (!offer?.endsAt) {
-       setTimeRemaining(null);
-       return;
-     }
-     setTimeRemaining(getTimeRemaining(offer.endsAt));
-     const timer = setInterval(() => {
-       setTimeRemaining(getTimeRemaining(offer.endsAt));
-     }, 60000);
-     return () => clearInterval(timer);
-   }, [offer?.endsAt]);
 
    // Check if offer is in wishlist and get likes count
    useEffect(() => {
@@ -576,12 +575,17 @@ function NearbyDealDetailsContent() {
       if (!voucherId) {
         throw new Error("Voucher was created but voucher id is missing.");
       }
+      // Immediately set claimed state - don't wait for context update
       setIsClaimed(true);
+      // Navigate to claimed offer page
       router.push(`/nearby-deals/deal/claimed-offer?voucherId=${voucherId}`);
     } catch (err) {
-      setClaimError(
-        err?.data?.message || err?.message || "Failed to claim offer."
-      );
+      const errorMsg = err?.data?.message || err?.message || "Failed to claim offer.";
+      setClaimError(errorMsg);
+      // If already claimed error, set isClaimed to true so button shows claimed state
+      if (errorMsg.toLowerCase().includes("already claimed")) {
+        setIsClaimed(true);
+      }
     }
   };
 
@@ -1000,26 +1004,38 @@ function NearbyDealDetailsContent() {
 
           <div className="space-y-4">
             {offer?.termsAndConditions ? (
-              <div className="rounded-xl border border-[#e7edf3] bg-[#fbfcfd] p-4 md:p-5">
-                <div className="mb-3 flex items-center gap-2">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#dbeafe] text-[#1d4ed8]">
-                    <Shield size={14} />
-                  </div>
-                  <h3 className="text-base font-bold text-[#1f2329]">
+              <div className="border border-[#e5e7eb] rounded-lg overflow-hidden">
+                <button
+                  onClick={() =>
+                    setExpandedTerms(expandedTerms === 0 ? null : 0)
+                  }
+                  className="w-full flex items-center justify-between p-4 hover:bg-[#f9fafb] transition"
+                >
+                  <p className="font-bold text-[#1f2329]">
                     Terms & Conditions
-                  </h3>
-                </div>
-                <div className="space-y-2.5 text-sm leading-7 text-[#4b5563]">
-                  {String(offer.termsAndConditions)
-                    .split(/\r?\n+/)
-                    .map((line) => line.trim())
-                    .filter(Boolean)
-                    .map((line, idx) => (
-                      <p key={`offer-term-${idx}`} className="rounded-lg bg-white px-3 py-2 border border-[#eef2f7]">
-                        {line}
-                      </p>
-                    ))}
-                </div>
+                  </p>
+                  <ChevronDown
+                    size={20}
+                    className={`text-[#666] transition-transform ${
+                      expandedTerms === 0 ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+                {expandedTerms === 0 && (
+                  <div className="px-4 pb-4 bg-[#f9fafb]">
+                    <div className="space-y-2.5 text-sm leading-7 text-[#4b5563]">
+                      {String(offer.termsAndConditions)
+                        .split(/\r?\n+/)
+                        .map((line) => line.trim())
+                        .filter(Boolean)
+                        .map((line, idx) => (
+                          <p key={`offer-term-${idx}`} className="rounded-lg bg-white px-3 py-2 border border-[#eef2f7]">
+                            {line}
+                          </p>
+                        ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               [
@@ -1120,13 +1136,14 @@ function NearbyDealDetailsContent() {
               </div>
             </div>
           </div>
-          <div className="space-y-4">
-            {loadingReviews ? (
-              <div className="rounded-xl border border-[#e5e7eb] bg-[#fafafa] px-4 py-5 text-sm text-[#66707b]">
-                Loading reviews...
-              </div>
-            ) : offerReviews.length ? (
-              offerReviews.map((review) => (
+          <div className={`${offerReviews.length > 3 ? "border border-[#e5e7eb] rounded-lg overflow-hidden" : ""}`}>
+            <div className={`${offerReviews.length > 3 ? "max-h-[500px] overflow-y-auto" : ""} space-y-4`}>
+              {loadingReviews ? (
+                <div className="rounded-xl border border-[#e5e7eb] bg-[#fafafa] px-4 py-5 text-sm text-[#66707b]">
+                  Loading reviews...
+                </div>
+              ) : offerReviews.length ? (
+                offerReviews.map((review) => (
                 <div key={review._id} className="border-b pb-4 last:border-b-0">
                   <div className="flex items-center justify-between mb-2 gap-3">
                     <div className="flex items-center gap-3">
@@ -1171,13 +1188,21 @@ function NearbyDealDetailsContent() {
                   <p className="text-sm text-[#5d6670]">{review.content}</p>
                 </div>
               ))
-            ) : (
-              <div className="rounded-xl border border-dashed border-[#d7dde5] bg-[#fafcfd] px-4 py-6 text-sm text-[#66707b]">
-                No customer reviews yet for this offer. Once someone redeems
-                and shares feedback, it will appear here.
-              </div>
-            )}
+              ) : (
+                <div className="rounded-xl border border-dashed border-[#d7dde5] bg-[#fafcfd] px-4 py-6 text-sm text-[#66707b]">
+                  No customer reviews yet for this offer. Once someone redeems
+                  and shares feedback, it will appear here.
+                </div>
+              )}
+            </div>
           </div>
+          {offerReviews.length > 3 && (
+            <div className="mt-2 text-center border-t border-[#e5e7eb] pt-3">
+              <p className="text-xs text-[#999]">
+                Showing {offerReviews.length} reviews • Scroll to see more
+              </p>
+            </div>
+          )}
         </section>
 
         {/* FAQ Section */}

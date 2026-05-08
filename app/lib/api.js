@@ -446,7 +446,13 @@ export async function getTrendingSearches(limit = 10) {
 }
 
 export async function getRecommendedDeals(limit = 10) {
-    return apiClient(`/ads/home/recommended?limit=${limit}`);
+    // New backend recommendations endpoint (requires auth)
+    return apiClient(`/recommendations/deals?limit=${limit}`);
+}
+
+// Persist user's preferred categories (array of strings)
+export async function savePreferredCategories(categories = []) {
+    return updateProfile({ preferredCategories: categories });
 }
 
 export async function getPopularPlaces(limit = 10) {

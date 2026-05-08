@@ -179,7 +179,7 @@ function matchOfferType(row, typeLabel) {
 function NearbyDealsPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
+   const { isAuthenticated, user } = useAuth();
 
   const [activeView, setActiveView] = useState("grid");
   const [distanceRadius, setDistanceRadius] = useState(5);
@@ -537,7 +537,7 @@ function NearbyDealsPageContent() {
   return (
     <main className="min-h-screen bg-[#F3F3F3]">
       <Navbar />
-      <CategoryBar variant="golocal" />
+       <CategoryBar variant="golocal" preferredCategories={user?.preferredCategories || []} />
 
       <section className="mx-auto max-w-[1400px] px-6 py-6">
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[260px_1fr]">
