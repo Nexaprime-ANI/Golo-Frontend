@@ -768,7 +768,8 @@ export async function getNearbyOffers({
     activeNowOnly = true,
     page = 1,
     limit = 20,
-} = {}) {
+    _t,  // cache buster (ignored by backend, just varies cache key)
+  } = {}) {
     const params = new URLSearchParams();
     if (typeof lat === 'number' && !Number.isNaN(lat)) params.set('lat', String(lat));
     if (typeof lng === 'number' && !Number.isNaN(lng)) params.set('lng', String(lng));
@@ -788,6 +789,7 @@ export async function getNearbyOffers({
     ) {
         params.set('maxPrice', String(maxPrice));
     }
+    if (_t) params.set('_t', String(_t));  // cache buster
     params.set('page', String(page));
     params.set('limit', String(limit));
     const endpoint = `/offers/nearby?${params.toString()}`;

@@ -7,12 +7,12 @@ import { useAuth } from "../context/AuthContext";
 import { getProfile, getNearbyOffers } from "../lib/api";
 
 // Maps backend-stored category labels → offer category filter strings
-// These must match what merchants set as their businessCategory
+// These must match what merchants set as their businessCategory/storeCategory
 const CATEGORY_LABEL_TO_OFFER_FILTER = {
-  "Food & Dining": "Food & Dining",
+  "Food & Dining": "Food & Restaurants",
   "Home Services": "Home Services",
-  "Beauty": "Beauty",
-  "Healthcare": "Healthcare",
+  "Beauty": "Beauty & Wellness",
+  "Healthcare": "Healthcare & Medical",
   "Hotels & Accommodation": "Hotels & Accommodation",
   "Shopping & Retail": "Shopping & Retail",
   "Education & Training": "Education & Training",
@@ -97,7 +97,7 @@ export default function Recommended() {
         return;
       }
 
-      // Step 2: Fetch deals for each category in parallel (min 2 per category)
+      // Step 2: Fetch deals for each category in parallel
       const seenIds = new Set();
       const allDeals = [];
 
@@ -110,17 +110,29 @@ export default function Recommended() {
               category: filterCategory,
               limit: FETCH_PER_CATEGORY,
               activeNowOnly: true,
+              // Cache busting: use timestamp to avoid stale Redis cache
+              _t: Date.now(),
             });
             const rows = res?.success && Array.isArray(res?.data) ? res.data : [];
             return { category, rows };
-          } catch {
+          } catch (err) {
+            console.warn(`[Recommended] Failed to fetch category "${category}":`, err?.message || err);
             return { category, rows: [] };
           }
         })
       );
 
+      // Log summary for debugging
+      const summary = categoryResults.map((r, idx) => ({
+        category: preferredCategories[idx],
+        status: r.status,
+        count: r.status === 'fulfilled' ? (r.value?.rows?.length || 0) : 0
+      }));
+      console.log('[Recommended] Category fetch summary:', summary);
+
       // Step 3: Take at least MIN_DEALS_PER_CATEGORY from each category
-      for (const result of categoryResults) {
+      for (let catIdx = 0; catIdx < categoryResults.length; catIdx++) {
+        const result = categoryResults[catIdx];
         if (result.status !== "fulfilled") continue;
         const { rows } = result.value;
         let takenFromCategory = 0;
@@ -160,10 +172,10 @@ export default function Recommended() {
       } else {
         setDeals(allDeals);
         setFetchState("success");
-        // Re-check scroll arrows after deals load
         setTimeout(updateScrollState, 100);
       }
-    } catch {
+    } catch (err) {
+      console.error('[Recommended] Fetch error:', err);
       if (!isBackground) {
         setDeals([]);
         setFetchState("error");
