@@ -16,6 +16,42 @@ const steps = [
   { title: "Step 3", subtitle: "Pay at store & enjoy", active: false },
 ];
 
+function pickLiveImage(...candidates) {
+  for (const candidate of candidates) {
+    const value = String(candidate || "").trim();
+    if (!value) continue;
+    if (
+      value === "/images/deal2.avif" ||
+      value === "/images/place2.avif" ||
+      value === "/images/deal1.jpg" ||
+      value === "/images/placeholder.webp"
+    ) continue;
+    return value;
+  }
+  return "";
+}
+
+function pickLiveImageFromProducts(products = []) {
+  if (!Array.isArray(products)) {
+    return "";
+  }
+
+  for (const product of products) {
+    const resolved = pickLiveImage(
+      product?.imageUrl,
+      product?.image,
+      Array.isArray(product?.images) ? product.images[0] : "",
+      product?.productImage
+    );
+
+    if (resolved) {
+      return resolved;
+    }
+  }
+
+  return "";
+}
+
 function QrPattern() {
   return (
     <svg viewBox="0 0 220 220" className="h-[164px] w-[164px]" role="img" aria-label="Offer QR Code">
@@ -476,11 +512,26 @@ function ClaimedOfferContent() {
     offerDetails?.merchant?.address ||
     selectedVoucher?.merchantLocation ||
     "";
+  const resolvedMerchantAvatar =
+    pickLiveImage(
+      merchantProfile?.profilePhoto,
+      merchantProfile?.merchantProfile?.profilePhoto,
+      offerDetails?.merchant?.profilePhoto,
+      offerDetails?.merchant?.shopPhoto
+    ) || "/images/place2.avif";
+  const selectedProductOfferImage = pickLiveImageFromProducts(offerDetails?.selectedProducts);
   const resolvedOfferImage =
-    selectedVoucher?.offerImage ||
-    offerDetails?.imageUrl ||
-    merchantProfile?.profilePhoto ||
-    "/images/place2.avif";
+    pickLiveImage(
+      offerDetails?.imageUrl,
+      offerDetails?.image,
+      selectedVoucher?.offerImage,
+      selectedProductOfferImage,
+      selectedVoucher?.selectedProducts?.[0]?.imageUrl,
+      selectedVoucher?.selectedProducts?.[0]?.image,
+      selectedVoucher?.image,
+      selectedVoucher?.productImage,
+      merchantProfile?.shopPhoto
+    ) || resolvedMerchantAvatar || "/images/place2.avif";
 
   return (
     <main className="min-h-screen bg-[#f3f3f3]">
@@ -494,7 +545,7 @@ function ClaimedOfferContent() {
           <div className="overflow-hidden rounded-[12px] border border-[#d8dce3] bg-white shadow-[0_6px_18px_rgba(16,24,40,0.06)]">
             <div className="flex items-center gap-3 border-b border-[#e6e9ed] px-4 py-3">
               <div className="h-14 w-14 overflow-hidden rounded-[8px] border border-[#d9dde2]">
-                <Image src={resolvedOfferImage} alt={resolvedMerchantName} width={56} height={56} className="h-full w-full object-cover" />
+                <Image src={resolvedOfferImage} alt={resolvedOfferTitle} width={56} height={56} className="h-full w-full object-cover" unoptimized />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
@@ -593,7 +644,7 @@ function ClaimedOfferContent() {
             <aside className="rounded-[12px] border border-[#d8dce3] bg-white p-4 shadow-[0_4px_14px_rgba(16,24,40,0.05)]">
               <div className="flex items-start gap-3">
                 <div className="h-12 w-12 shrink-0 aspect-square overflow-hidden rounded-full border border-[#d8dce3]">
-                  <Image src={resolvedOfferImage} alt={resolvedMerchantName} width={64} height={64} className="h-full w-full rounded-full object-cover" />
+                  <Image src={resolvedMerchantAvatar} alt={resolvedMerchantName} width={64} height={64} className="h-full w-full rounded-full object-cover" unoptimized />
                 </div>
                 <div>
                   <p className="text-[15px] font-bold text-[#1f2329]">{resolvedMerchantName}</p>
@@ -603,7 +654,7 @@ function ClaimedOfferContent() {
               </div>
 
               <div className="mt-4 overflow-hidden rounded-[10px] border border-[#e4e7eb]">
-                <Image src="/images/banner3.avif" alt="Merchant highlight" width={420} height={240} className="h-[110px] w-full object-cover" />
+                <Image src={resolvedOfferImage} alt={resolvedOfferTitle} width={420} height={240} className="h-[110px] w-full object-cover" unoptimized />
               </div>
 
               <button

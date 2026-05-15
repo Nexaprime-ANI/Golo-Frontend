@@ -42,6 +42,12 @@ function getSafeImageSrc(value) {
     return "/images/placeholder.webp";
 }
 
+const chatButtonClass =
+    "bg-[#157a4f] text-white font-semibold shadow-[0_10px_22px_rgba(21,122,79,0.26)] hover:bg-[#126542] transition-colors";
+
+const callButtonClass =
+    "bg-[#efb02e] text-[#1f2329] font-semibold shadow-[0_10px_22px_rgba(239,176,46,0.28)] hover:bg-[#d79d25] transition-colors";
+
 function assignBentoLayout(adsList) {
     return adsList.map((ad) => {
         const type = getAdTemplateType(ad);
@@ -314,7 +320,7 @@ function MultiImageAd({ ad, className, isAuthenticated, onRequireAuth }) {
                             }
                             router.push(`/chats?adId=${ad.adId || ad._id}&sellerId=${ad.userId || ''}`);
                         }}
-                        className="px-4 py-2 text-sm rounded-xl theme-button-accent"
+                        className={`px-4 py-2 text-sm rounded-xl ${chatButtonClass}`}
                     >
                         Chat
                     </button>
@@ -327,7 +333,7 @@ function MultiImageAd({ ad, className, isAuthenticated, onRequireAuth }) {
                             }
                             router.push(`/chats?adId=${ad.adId || ad._id}&sellerId=${ad.userId || ''}&autoCall=1`);
                         }}
-                        className="px-4 py-2 text-sm rounded-xl theme-button-primary"
+                        className={`px-4 py-2 text-sm rounded-xl ${callButtonClass}`}
                     >
                         Call
                     </button>
@@ -384,7 +390,7 @@ function SingleImageAd({ ad, className, isAuthenticated, onRequireAuth }) {
                             }
                             router.push(`/chats?adId=${ad.adId || ad._id}&sellerId=${ad.userId || ''}`);
                         }}
-                        className="flex-1 py-2 text-xs rounded-lg theme-button-accent"
+                        className={`flex-1 py-2 text-xs rounded-lg ${chatButtonClass}`}
                     >
                         Chat
                     </button>
@@ -397,7 +403,7 @@ function SingleImageAd({ ad, className, isAuthenticated, onRequireAuth }) {
                             }
                             router.push(`/chats?adId=${ad.adId || ad._id}&sellerId=${ad.userId || ''}&autoCall=1`);
                         }}
-                        className="flex-1 py-2 text-xs rounded-lg theme-button-primary"
+                        className={`flex-1 py-2 text-xs rounded-lg ${callButtonClass}`}
                     >
                         Call
                     </button>
@@ -434,7 +440,7 @@ function TextAd({ ad, className, isAuthenticated, onRequireAuth }) {
                         }
                         router.push(`/chats?adId=${ad.adId || ad._id}&sellerId=${ad.userId || ''}`);
                     }}
-                    className="flex-1 py-2 text-xs rounded-lg theme-button-accent"
+                    className={`flex-1 py-2 text-xs rounded-lg ${chatButtonClass}`}
                 >
                     Chat
                 </button>
@@ -447,7 +453,7 @@ function TextAd({ ad, className, isAuthenticated, onRequireAuth }) {
                         }
                         router.push(`/chats?adId=${ad.adId || ad._id}&sellerId=${ad.userId || ''}&autoCall=1`);
                     }}
-                    className="flex-1 py-2 text-xs rounded-lg theme-button-primary"
+                    className={`flex-1 py-2 text-xs rounded-lg ${callButtonClass}`}
                 >
                     Call
                 </button>

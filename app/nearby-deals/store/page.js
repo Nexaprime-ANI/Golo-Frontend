@@ -178,6 +178,11 @@ function NearbyStoreContent() {
           ...userRes.data,
           name: firstOfferMerchant?.name || userRes.data?.name,
           profilePhoto: firstOfferMerchant?.profilePhoto || userRes.data?.profilePhoto,
+          shopPhoto:
+            userRes.data?.shopPhoto ||
+            userRes.data?.merchantProfile?.shopPhoto ||
+            firstOfferMerchant?.shopPhoto ||
+            "",
           merchantProfile: userRes.data?.merchantProfile || null,
           profile: {
             ...(userRes.data?.profile || {}),
@@ -307,6 +312,14 @@ function NearbyStoreContent() {
     merchant?.profile?.bio ||
     merchant?.merchantProfile?.storeSubCategory ||
     "Premium services and products from our trusted merchant";
+  const resolvedStoreImage =
+    merchant?.shopPhoto ||
+    merchant?.merchantProfile?.shopPhoto ||
+    offers[0]?.merchant?.shopPhoto ||
+    products.find((item) => item?.image || item?.imageUrl)?.image ||
+    products.find((item) => item?.image || item?.imageUrl)?.imageUrl ||
+    merchant?.profilePhoto ||
+    "/images/place2.avif";
 
   return (
     <main className="min-h-screen bg-[#f3f3f3]">
@@ -352,10 +365,11 @@ function NearbyStoreContent() {
           <div className="overflow-hidden rounded-2xl border border-[#d8dce3] bg-white shadow-sm">
             <div className="relative h-80 lg:h-96">
               <Image
-                src={merchant?.profilePhoto || "/images/place2.avif"}
+                src={resolvedStoreImage}
                 alt={merchant?.name || "Store"}
                 fill
                 className="object-cover"
+                unoptimized
               />
             </div>
           </div>

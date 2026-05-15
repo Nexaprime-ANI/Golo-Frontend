@@ -19,7 +19,7 @@ import ImageCarousel from "../../components/ImageCarousel";
 import { useAuth } from "../../context/AuthContext";
 import {
   getMerchantProductById,
-  getNearbyOfferDetails,
+  getNearbyOffers,
   getPublicMerchantProductById,
   getPublicMerchantProducts,
   getPublicMerchantProfile,
@@ -111,6 +111,7 @@ function ProductDetailContent() {
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [isTogglingWishlist, setIsTogglingWishlist] = useState(false);
   const [wishlistCount, setWishlistCount] = useState(null);
+  const [isOpeningOffer, setIsOpeningOffer] = useState(false);
 
   useEffect(() => {
     if (!productId) {
@@ -355,6 +356,18 @@ function ProductDetailContent() {
   const merchantReviewCount = Number(
     merchant?.reviewCount ?? merchant?.totalReviews ?? merchant?.profile?.reviewCount ?? 0
   );
+  const merchantStoreId = String(
+    merchant?._id ||
+      merchant?.id ||
+      merchant?.merchantId ||
+      product?.merchantId ||
+      product?.merchant?._id ||
+      product?.merchant?.id ||
+      ""
+  ).trim();
+  const resolvedProductId = String(
+    product?._id || product?.productId || product?.id || productId || ""
+  ).trim();
   const productOfferIds = useMemo(() => {
     const rawCandidates = [
       product?.offerId,
@@ -401,12 +414,88 @@ function ProductDetailContent() {
     return ids;
   }, [product]);
 
-  const selectedOfferId = useMemo(() => {
-    if (productOfferIds.length === 0) return null;
-    if (productOfferIds.length === 1) return productOfferIds[0];
-    const randomIndex = Math.floor(Math.random() * productOfferIds.length);
-    return productOfferIds[randomIndex];
-  }, [productOfferIds]);
+  const pickRandomItem = (items = []) => {
+    if (!Array.isArray(items) || items.length === 0) return null;
+    return items[Math.floor(Math.random() * items.length)] || null;
+  };
+
+  const extractOffers = (response) => {
+    if (Array.isArray(response?.data)) return response.data;
+    if (Array.isArray(response?.data?.offers)) return response.data.offers;
+    if (Array.isArray(response?.data?.items)) return response.data.items;
+    if (Array.isArray(response?.offers)) return response.offers;
+    if (Array.isArray(response?.items)) return response.items;
+    return [];
+  };
+
+  const doesOfferMatchProduct = (offer) => {
+    const selectedProducts = Array.isArray(offer?.selectedProducts)
+      ? offer.selectedProducts
+      : [];
+
+    if (
+      selectedProducts.some((item) =>
+        [
+          item?.productId,
+          item?.id,
+          item?._id,
+          item?.product?._id,
+          item?.product?.id,
+        ]
+          .map((value) => String(value || "").trim())
+          .includes(resolvedProductId)
+      )
+    ) {
+      return true;
+    }
+
+    const directProductRefs = [
+      offer?.productId,
+      offer?.product?._id,
+      offer?.product?.id,
+      offer?.linkedProductId,
+    ]
+      .map((value) => String(value || "").trim())
+      .filter(Boolean);
+
+    return directProductRefs.includes(resolvedProductId);
+  };
+
+  const handleViewOffers = async () => {
+    if (!resolvedProductId || isOpeningOffer) return;
+
+    setIsOpeningOffer(true);
+    try {
+      let candidateOfferIds = [...productOfferIds];
+
+      if (candidateOfferIds.length === 0) {
+        const response = await getNearbyOffers({ limit: 100, activeNowOnly: true });
+        const nearbyOffers = extractOffers(response);
+        const matchedOfferIds = nearbyOffers
+          .filter((offer) => doesOfferMatchProduct(offer))
+          .map((offer) =>
+            String(offer?.offerId || offer?._id || offer?.id || "").trim()
+          )
+          .filter(Boolean);
+
+        candidateOfferIds = Array.from(new Set(matchedOfferIds));
+      }
+
+      const selectedOfferId = pickRandomItem(candidateOfferIds);
+      if (!selectedOfferId) {
+        alert("No offers available for this product right now.");
+        return;
+      }
+
+      sessionStorage.setItem("selectedOfferId", selectedOfferId);
+      router.push(`/nearby-deals/deal?offerId=${encodeURIComponent(selectedOfferId)}`);
+    } catch (err) {
+      console.error("Failed to open product offers:", err);
+      alert("Unable to open offers for this product right now.");
+    } finally {
+      setIsOpeningOffer(false);
+    }
+  };
 
   const dynamicSpecs = [
     { label: "Sub-category", value: product?.subCategory || product?.subcategory || null },
@@ -503,21 +592,15 @@ function ProductDetailContent() {
 
                 <button
                   className="w-full h-12 bg-[#157a4f] text-white rounded-lg font-bold text-lg transition-all hover:bg-[#0f6a42] flex items-center justify-center gap-2"
-                  onClick={() => {
-                    if (!selectedOfferId) return;
-                    sessionStorage.setItem("selectedOfferId", selectedOfferId);
-                    router.push(`/nearby-deals/deal?offerId=${selectedOfferId}`);
-                  }}
-                  disabled={!selectedOfferId}
+                  onClick={handleViewOffers}
+                  disabled={isOpeningOffer}
                 >
                   <ShoppingCart size={20} />
-                  View Offers on Product
+                  {isOpeningOffer ? "Opening Offers..." : "View Offers"}
                 </button>
 
                 <p className="text-xs text-[#666] text-center mt-2">
-                  {selectedOfferId
-                    ? "Open one available offer for this product"
-                    : "No offers available for this product"}
+                  Open one random available offer for this product
                 </p>
               </div>
 
@@ -593,6 +676,20 @@ function ProductDetailContent() {
               </div>
 
               <div className="space-y-3">
+                {merchantStoreId && (
+                  <button
+                    onClick={() =>
+                      router.push(
+                        `/nearby-deals/store?merchantId=${encodeURIComponent(
+                          merchantStoreId
+                        )}`
+                      )
+                    }
+                    className="w-full h-10 bg-[#157a4f] text-white rounded-lg font-semibold text-sm hover:bg-[#0f6a42] transition"
+                  >
+                    View Store
+                  </button>
+                )}
                 <button
                   onClick={() => router.push("/nearby-deals")}
                   className="w-full h-10 bg-[#f0f4ff] border border-[#4a5fc1] text-[#4a5fc1] rounded-lg font-semibold text-sm hover:bg-[#e6edff] transition"

@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { apiClient, loginUser, registerUser, logoutUser, getProfile, updateMerchantStoreLocation } from "../lib/api";
+import { API_BASE_URL, apiClient, loginUser, registerUser, logoutUser, getProfile, updateMerchantStoreLocation } from "../lib/api";
 
 const AuthContext = createContext(null);
 
@@ -69,7 +69,7 @@ export function AuthProvider({ children }) {
         if (typeof window !== "undefined" && userDataWithType?.accountType === "merchant") {
             try {
                 // Ask server to sync any pending merchant location saved during registration
-                const backendApiBase = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api').replace(/\/$/, '');
+                const backendApiBase = API_BASE_URL;
                 await fetch(`${backendApiBase}/users/pending-location/sync`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },

@@ -30,11 +30,36 @@ export async function submitUserReport(userId, reason, description) {
 // Centralized API Layer — Choja Frontend → ads-microservice
 // ============================================================
 
-const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL?.trim();
-const NORMALIZED_REMOTE_API_URL = RAW_API_URL ? RAW_API_URL.replace(/\/$/, '') : '';
+const FALLBACK_API_URL = 'http://localhost:3002/api';
+
+function normalizeBackendApiBaseUrl(rawValue, fallbackUrl = FALLBACK_API_URL) {
+    const trimmedValue = String(rawValue || '').trim();
+
+    if (!trimmedValue) {
+        return fallbackUrl;
+    }
+
+    const protocolMatches = [...trimmedValue.matchAll(/https?:\/\//g)];
+    let normalizedValue = trimmedValue;
+
+    if (protocolMatches.length > 1) {
+        normalizedValue = trimmedValue.slice(protocolMatches[protocolMatches.length - 1].index);
+    }
+
+    normalizedValue = normalizedValue.replace(/\/+$/, '');
+
+    if (/^https?:\/\/[^/]+$/i.test(normalizedValue)) {
+        normalizedValue = `${normalizedValue}/api`;
+    }
+
+    return normalizedValue;
+}
+
+export const API_BASE_URL = normalizeBackendApiBaseUrl(process.env.NEXT_PUBLIC_API_URL);
+export const API_ORIGIN_URL = API_BASE_URL.replace(/\/api$/, '');
 // Always talk to the backend gateway directly so the frontend can use /api as
 // its own base path without colliding with API requests.
-const BASE_URL = NORMALIZED_REMOTE_API_URL || 'http://localhost:3002/api';
+const BASE_URL = API_BASE_URL;
 const PUBLIC_AUTH_ENDPOINTS = new Set([
     '/users/login',
     '/users/register',
@@ -639,7 +664,7 @@ export async function getActiveHomepageBanners(limit = 5) {
     return apiClient(`/banners/promotions/active?limit=${limit}`);
 }
 
-const LOCAL_BACKEND_URL = NORMALIZED_REMOTE_API_URL || 'http://localhost:3002/api';
+const LOCAL_BACKEND_URL = API_BASE_URL;
 let nearbyOffersRouteMissingOnPrimary = false;
 const NEARBY_OFFERS_PRIMARY_UNSUPPORTED_KEY = 'golo_nearby_offers_primary_unsupported';
 

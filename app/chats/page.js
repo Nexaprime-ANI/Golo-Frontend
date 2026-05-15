@@ -15,12 +15,10 @@ import {
   startConversation,
   uploadChatAttachment,
 } from "../lib/api";
+import { API_ORIGIN_URL } from "../lib/api";
 
 const API_BASE = "/api";
-const SOCKET_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL?.trim().replace(/\/$/, "") ||
-  "https://golo-backend-new.onrender.com";
-const SOCKET_ORIGIN = SOCKET_BASE_URL.replace(/\/api$/, "");
+const SOCKET_ORIGIN = API_ORIGIN_URL || "https://golo-backend-new.onrender.com";
 const CALL_ICE_SERVERS = [{ urls: "stun:stun.l.google.com:19302" }];
 
 const formatCallDuration = (value) => {

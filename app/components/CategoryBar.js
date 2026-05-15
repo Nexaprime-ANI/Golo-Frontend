@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { usePathname } from "next/navigation";
 import { ChevronDown, Grid } from "lucide-react";
 import { createPortal } from "react-dom";
-import { normalizeAppPath } from "../lib/path";
+import { normalizeAppPath, withFrontendBasePath } from "../lib/path";
 
 const mainCategories = [
   { name: "Education" },
@@ -174,7 +174,7 @@ function CategoryBarContent({ variant = "choja", preferredCategories = [] }) {
         nextParams.set("q", currentQuery);
       }
 
-      const targetUrl = `/api/nearby-deals?${nextParams.toString()}`;
+      const targetUrl = withFrontendBasePath(`/nearby-deals?${nextParams.toString()}`);
 
       if (typeof window !== "undefined") {
         window.location.assign(targetUrl);
@@ -188,8 +188,8 @@ function CategoryBarContent({ variant = "choja", preferredCategories = [] }) {
 
     const encoded = encodeURIComponent(categoryName);
     const url = sub
-      ? `/api/category/${encoded}?sub=${encodeURIComponent(sub)}`
-      : `/api/category/${encoded}`;
+      ? withFrontendBasePath(`/category/${encoded}?sub=${encodeURIComponent(sub)}`)
+      : withFrontendBasePath(`/category/${encoded}`);
 
     if (typeof window !== "undefined") {
       window.location.assign(url);
