@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../context/AuthContext";
+import { savePreferredCategories } from "../../lib/api";
 import {
   Utensils,
   Home,
@@ -42,9 +43,27 @@ const CATEGORY_OPTIONS = [
   { id: "local-businesses-vendors", label: "Local Businesses & Vendors", Icon: Store },
 ];
 
+const BACKEND_CATEGORY_MAP = {
+  "food-restaurants": "Food & Restaurants",
+  "home-services": "Home Services",
+  "beauty-wellness": "Beauty & Wellness",
+  "healthcare-medical": "Healthcare & Medical",
+  "hotels-accommodation": "Hotels & Accommodation",
+  "shopping-retail": "Shopping & Retail",
+  "education-training": "Education & Training",
+  "real-estate": "Real Estate",
+  "events-entertainment": "Events & Entertainment",
+  "professional-services": "Professional Services",
+  "automotive-services": "Automotive Services",
+  "home-improvement": "Home Improvement",
+  "fitness-sports": "Fitness & Sports",
+  "daily-needs": "Daily Needs & Utilities",
+  "local-businesses-vendors": "Local Businesses & Vendors",
+};
+
 export default function GolocalOnboardingPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
   const [selected, setSelected] = useState([
     "food-restaurants",
     "hotels-accommodation",
@@ -70,17 +89,43 @@ export default function GolocalOnboardingPage() {
     });
   };
 
-  const handleContinue = () => {
-    if (!canContinue || typeof window === "undefined") return;
+  const idToLabelMap = useMemo(() => {
+    const map = new Map();
+    CATEGORY_OPTIONS.forEach((item) => {
+      map.set(item.id, item.label);
+    });
+    return map;
+  }, []);
 
-    const normalizedEmail = String(user?.email || "").trim().toLowerCase();
-    if (normalizedEmail) {
-      localStorage.setItem(`golo_golocal_onboarding_done_email_${normalizedEmail}`, "1");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+
+  const handleContinue = async () => {
+    if (!canContinue) return;
+
+    const preferredCategories = selected
+      .map((id) => BACKEND_CATEGORY_MAP[id] || idToLabelMap.get(id))
+      .filter(Boolean);
+
+    setSaving(true);
+    setSaveError("");
+    try {
+      await savePreferredCategories(preferredCategories);
+      await refreshProfile();
+
+      // Mark onboarding as done so it never shows again on login
+      if (typeof window !== "undefined" && user?.email) {
+        const normalizedEmail = user.email.trim().toLowerCase();
+        localStorage.setItem(`golo_golocal_onboarding_done_email_${normalizedEmail}`, "1");
+        localStorage.removeItem("golo_pending_first_login_email");
+      }
+
+      router.push("/");
+    } catch {
+      setSaveError("Failed to save preferences. Please try again.");
+    } finally {
+      setSaving(false);
     }
-    localStorage.removeItem("golo_pending_first_login_email");
-    localStorage.setItem("golo_golocal_selected_categories", JSON.stringify(selected));
-
-    router.push("/");
   };
 
   return (
@@ -127,19 +172,32 @@ export default function GolocalOnboardingPage() {
             })}
           </div>
 
-          <div className="mt-8 flex flex-col items-center">
+          <div className="mt-8 flex flex-col items-center gap-3">
             <button
               type="button"
               onClick={handleContinue}
-              disabled={!canContinue}
+              disabled={!canContinue || saving}
               className={`inline-flex w-full max-w-sm items-center justify-center gap-2 rounded-xl border px-6 py-3.5 text-base font-semibold shadow-sm transition ${
-                canContinue
+                canContinue && !saving
                   ? "border-[#157A4F] bg-[#157A4F] text-white hover:bg-[#12663f]"
                   : "border-gray-200 bg-[#F0F0F0] text-gray-400"
               }`}
             >
-              Continue <ChevronRight size={16} />
+              {saving ? (
+                <>
+                  <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                  </svg>
+                  Saving...
+                </>
+              ) : (
+                <>Continue <ChevronRight size={16} /></>
+              )}
             </button>
+            {saveError && (
+              <p className="text-sm text-red-600 font-medium">{saveError}</p>
+            )}
           </div>
         </div>
       </div>

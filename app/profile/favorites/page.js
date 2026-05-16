@@ -147,11 +147,9 @@ export default function GolocalFavoritesPage() {
                       ? "Start exploring and save your favorite deals!"
                       : "Save some deals to see them here."}
                   </p>
-                  <a href="/choja">
-                    <button className="bg-[#157a4f] text-white px-8 py-3 rounded-full font-medium hover:bg-[#0f5c3a] transition-colors">
-                      Explore Deals
-                    </button>
-                  </a>
+                  <Link href="/nearby-deals" className="bg-[#157a4f] text-white px-8 py-3 rounded-full font-medium hover:bg-[#0f5c3a] transition-colors inline-flex items-center justify-center">
+                    Explore Deals
+                  </Link>
                 </div>
                ) : (
                 <div className="mt-5 grid sm:grid-cols-2 xl:grid-cols-4 gap-4">

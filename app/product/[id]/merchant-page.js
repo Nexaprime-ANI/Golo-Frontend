@@ -1,15 +1,54 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { use, useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import Navbar from "../../components/Navbar";
 import Footer from "../../components/Footer";
 import Recommended from "@/app/components/Recommended";
-import { getMerchantProductById } from "../../lib/api";
+import { getAdById, getMerchantProductById } from "../../lib/api";
+
+function MerchantProductSkeleton() {
+  return (
+    <>
+      <Navbar />
+      <div className="min-h-screen bg-[#F8F6F2]">
+        <div className="mx-auto max-w-5xl px-6 py-10">
+          <div className="mb-6 h-4 w-72 animate-pulse rounded bg-[#dedbd3]" />
+          <div className="grid gap-10 md:grid-cols-3">
+            <div className="md:col-span-2">
+              <div className="flex gap-6">
+                <div className="flex flex-col gap-4">
+                  {Array.from({ length: 4 }).map((_, index) => (
+                    <div key={index} className="h-20 w-20 animate-pulse rounded-xl bg-[#dedbd3]" />
+                  ))}
+                </div>
+                <div className="h-[430px] flex-1 animate-pulse rounded-2xl border border-gray-200 bg-white" />
+              </div>
+              <div className="mt-6 space-y-3">
+                <div className="h-7 w-3/5 animate-pulse rounded bg-[#dedbd3]" />
+                <div className="h-4 w-full animate-pulse rounded bg-[#e8e5dd]" />
+                <div className="h-4 w-5/6 animate-pulse rounded bg-[#e8e5dd]" />
+                <div className="flex gap-4 pt-2">
+                  <div className="h-7 w-24 animate-pulse rounded-full bg-[#e8e5dd]" />
+                  <div className="h-7 w-28 animate-pulse rounded-full bg-[#e8e5dd]" />
+                </div>
+              </div>
+            </div>
+            <div className="space-y-6">
+              <div className="h-48 animate-pulse rounded-2xl border border-gray-200 bg-white" />
+              <div className="h-36 animate-pulse rounded-2xl border border-gray-200 bg-white" />
+            </div>
+          </div>
+        </div>
+      </div>
+      <Footer />
+    </>
+  );
+}
 
 export default function MerchantProductDetails({ params }) {
-  const productId = params.id;
+  const { id: productId } = use(params);
   const router = useRouter();
 
   const [product, setProduct] = useState(null);
@@ -17,18 +56,54 @@ export default function MerchantProductDetails({ params }) {
   const [error, setError] = useState("");
   const [selectedImage, setSelectedImage] = useState(0);
 
+  const normalizeProduct = (raw) => {
+    if (!raw) return null;
+    return {
+      _id: raw?._id || raw?.id || "",
+      name: raw?.name || raw?.title || raw?.productName || "Product",
+      description: raw?.description || "No description provided.",
+      category: raw?.category || "General",
+      subCategory: raw?.subCategory || "",
+      price: Number(raw?.price ?? raw?.offerPrice ?? 0),
+      offerPrice: Number(raw?.offerPrice ?? raw?.price ?? 0),
+      originalPrice: Number(raw?.originalPrice ?? 0),
+      stockQuantity:
+        raw?.stockQuantity !== undefined && raw?.stockQuantity !== null
+          ? Number(raw.stockQuantity)
+          : undefined,
+      imageUrl: raw?.imageUrl || raw?.image || "",
+      images: Array.isArray(raw?.images) ? raw.images : [],
+      merchantId:
+        raw?.merchantId || raw?.merchant?._id || raw?.merchant?.id || "",
+      merchantName: raw?.merchantName || raw?.merchant?.name || "",
+      merchantPhone: raw?.merchantPhone || raw?.merchant?.phone || "",
+      merchant: raw?.merchant || null,
+    };
+  };
+
   useEffect(() => {
     async function fetchProduct() {
       setLoading(true);
       try {
-        const response = await getMerchantProductById(productId);
-        if (response.success && response.data) {
-          setProduct(response.data);
-        } else {
-          setError("Product not found");
+        let normalized = null;
+
+        try {
+          const merchantRes = await getMerchantProductById(productId);
+          normalized = normalizeProduct(merchantRes?.data);
+        } catch {
+          normalized = null;
         }
+
+        if (!normalized?._id) {
+          const adRes = await getAdById(productId);
+          normalized = normalizeProduct(adRes?.data);
+        }
+
+        if (!normalized?._id) throw new Error("Product not found");
+        setProduct(normalized);
+        setError("");
       } catch (err) {
-        setError("Failed to load product details");
+        setError(err?.message || "Failed to load product details");
       } finally {
         setLoading(false);
       }
@@ -37,18 +112,7 @@ export default function MerchantProductDetails({ params }) {
   }, [productId]);
 
   if (loading) {
-    return (
-      <>
-        <Navbar />
-        <div className="bg-[#F8F6F2] min-h-screen flex items-center justify-center">
-          <div className="flex flex-col items-center gap-3">
-            <span className="loader" />
-            <p className="text-gray-500">Loading product details...</p>
-          </div>
-        </div>
-        <Footer />
-      </>
-    );
+    return <MerchantProductSkeleton />;
   }
 
   if (error) {

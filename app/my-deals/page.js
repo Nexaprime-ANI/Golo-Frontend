@@ -10,7 +10,7 @@ import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { CalendarDays, ChevronRight, Search, Tag, ShieldCheck, CircleHelp, ArrowUpDown, ExternalLink } from "lucide-react";
 
-const tabs = ["All Deals", "Active", "Claimed", "Redeemed", "Expired"];
+const tabs = ["All Deals", "Claimed", "Redeemed", "Expired"];
 
 // Dynamic stats calculation
 function useDealStats(myVouchers) {
@@ -25,7 +25,7 @@ function useDealStats(myVouchers) {
     }
 
     const active = myVouchers.filter(v => v.status === "active" || v.status === "claimed").length;
-    const claimed = myVouchers.filter(v => v.status === "claimed").length;
+    const claimed = myVouchers.filter(v => v.status === "active" || v.status === "claimed").length;
     const redeemed = myVouchers.filter(v => v.status === "redeemed").length;
     const expired = myVouchers.filter(v => v.status === "expired").length;
 
@@ -69,11 +69,8 @@ export default function MyDeals() {
     }
 
     let filtered = myVouchers;
-    if (activeTab === "Active") {
-      // Active means not redeemed or expired - can still be used
+    if (activeTab === "Claimed") {
       filtered = myVouchers.filter(v => v.status === "active" || v.status === "claimed");
-    } else if (activeTab === "Claimed") {
-      filtered = myVouchers.filter(v => v.status === "claimed");
     } else if (activeTab === "Redeemed") {
       filtered = myVouchers.filter(v => v.status === "redeemed");
     } else if (activeTab === "Expired") {
@@ -166,7 +163,7 @@ export default function MyDeals() {
                         />
                         <div className="absolute inset-x-0 top-0 flex items-start justify-between px-2 py-2">
                           <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold shadow-sm ${deal.status === "active" || deal.status === "claimed" ? "bg-[#d3f3dd] text-[#15803d]" : deal.status === "redeemed" ? "bg-[#dce6ff] text-[#334155]" : "bg-[#f5e2d7] text-[#b45309]"}`}>
-                            {deal.status}
+                            {deal.status === "active" ? "claimed" : deal.status}
                           </span>
                           {deal.badge && <span className="rounded-full bg-[#7a4af4] px-2.5 py-0.5 text-[10px] font-semibold text-white shadow-sm">{deal.badge}</span>}
                         </div>
@@ -185,15 +182,20 @@ export default function MyDeals() {
                           {(deal.status === "active" || deal.status === "claimed") && (
                             <button 
                               onClick={() => router.push(`/nearby-deals/deal/claimed-offer?voucherId=${deal._id}`)}
-                              className="h-8 flex-1 rounded-md bg-[#f3b12a] text-[#1f1f1f] text-[12px] font-semibold hover:brightness-95 transition"
+                              className="h-8 flex-1 rounded-md bg-[#d3f3dd] text-[#15803d] text-[12px] font-semibold cursor-not-allowed"
+                              disabled
                             >
-                              View Code
+                              Claimed
                             </button>
                           )}
                           <button 
-                            onClick={() => router.push(`/nearby-deals/deal?offerId=${deal.offerId}`)}
+                            onClick={() => router.push(
+                              deal.status === "active" || deal.status === "claimed"
+                                ? `/nearby-deals/deal/claimed-offer?voucherId=${deal._id}`
+                                : `/nearby-deals/deal?offerId=${deal.offerId}`
+                            )}
                             className="h-8 w-8 rounded-md border border-[#e0e0e0] text-[#777] flex items-center justify-center hover:border-[#c9c9c9]"
-                            aria-label="View deal details"
+                            aria-label={deal.status === "active" || deal.status === "claimed" ? "Open claimed voucher QR" : "View deal details"}
                           >
                             <ChevronRight size={14} />
                           </button>

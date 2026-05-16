@@ -26,7 +26,7 @@ export default function FormSidebar({
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [isFeatured, setIsFeatured] = useState(false);
   const router = useRouter();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, logout } = useAuth();
 
   useEffect(() => {
     if ((templateId === 1 || !templateId) && uploadedImages && uploadedImages.length > 1) {
@@ -217,11 +217,7 @@ export default function FormSidebar({
       const status = error.status || error.data?.statusCode;
       // Token expired — clear session and redirect to login
       if (status === 401) {
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('accessToken');
-          localStorage.removeItem('refreshToken');
-          localStorage.removeItem('user');
-        }
+        logout().catch(() => {});
         router.push('/login?redirect=/post-ad/form&reason=session_expired');
         return;
       }

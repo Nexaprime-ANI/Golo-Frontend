@@ -15,8 +15,14 @@ import {
   startConversation,
   uploadChatAttachment,
 } from "../lib/api";
+import { API_ORIGIN_URL } from "../lib/api";
 
+<<<<<<< HEAD
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === "production" ? "" : "http://localhost:3002");
+=======
+const API_BASE = "/api";
+const SOCKET_ORIGIN = API_ORIGIN_URL || "https://golo-backend-new.onrender.com";
+>>>>>>> ab702514040ebb26ccf6345e37517ad5d0c39df4
 const CALL_ICE_SERVERS = [{ urls: "stun:stun.l.google.com:19302" }];
 
 const formatCallDuration = (value) => {
@@ -100,14 +106,6 @@ function ChatsPageContent() {
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [loadingConversations, setLoadingConversations] = useState(true);
-
-  if (isLoading) {
-    return <LoadingScreen />;
-  }
-
-  if (!isAuthorized) {
-    return null;
-  }
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sending, setSending] = useState(false);
   const [pageError, setPageError] = useState("");
@@ -725,23 +723,18 @@ function ChatsPageContent() {
   useEffect(() => {
     if (!isAuthenticated || typeof window === "undefined") return;
 
-    const token = localStorage.getItem("accessToken");
-    if (!token) return;
-
     let mounted = true;
 
     const setupSocket = async () => {
       const { io } = await import("socket.io-client");
       if (!mounted) return;
 
-      const socket = io(`${API_BASE}/chat`, {
+      const socket = io(`${SOCKET_ORIGIN}/chat`, {
         transports: ["websocket", "polling"],
         reconnection: true,
         reconnectionAttempts: 20,
         reconnectionDelay: 1000,
-        auth: {
-          token,
-        },
+        withCredentials: true,
       });
 
       socket.on("connect", () => {
@@ -881,23 +874,18 @@ function ChatsPageContent() {
   useEffect(() => {
     if (!isAuthenticated || typeof window === "undefined") return;
 
-    const token = localStorage.getItem("accessToken");
-    if (!token) return;
-
     let mounted = true;
 
     const setupCallSocket = async () => {
       const { io } = await import("socket.io-client");
       if (!mounted) return;
 
-      const socket = io(`${API_BASE}/calls`, {
+      const socket = io(`${SOCKET_ORIGIN}/calls`, {
         transports: ["websocket", "polling"],
         reconnection: true,
         reconnectionAttempts: 20,
         reconnectionDelay: 1000,
-        auth: {
-          token,
-        },
+        withCredentials: true,
       });
 
       socket.on("connect", () => {
@@ -1447,6 +1435,14 @@ function ChatsPageContent() {
     });
     setIsMuted(nextMuted);
   };
+
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
+
+  if (!isAuthorized) {
+    return null;
+  }
 
   const otherUserId = selectedConversation?.otherUser?.id;
   const selectedPresence = otherUserId ? presenceMap[otherUserId] : null;

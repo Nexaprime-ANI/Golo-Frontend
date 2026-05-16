@@ -6,7 +6,7 @@ import { Suspense, useEffect, useState } from "react";
 import { CircleHelp, Download, MapPin, Share2, Star, Ticket, Copy, Check } from "lucide-react";
 import { useVoucher } from "../../../context/VoucherContext";
 import { useAuth } from "../../../context/AuthContext";
-import { getPublicVoucherStatus, submitOfferReview } from "../../../lib/api";
+import { getNearbyOfferDetails, getPublicMerchantProfile, getPublicVoucherStatus, submitOfferReview } from "../../../lib/api";
 import Navbar from "../../../components/Navbar";
 import Footer from "../../../components/Footer";
 
@@ -15,6 +15,42 @@ const steps = [
   { title: "Step 2", subtitle: "Show this QR to merchant", active: true },
   { title: "Step 3", subtitle: "Pay at store & enjoy", active: false },
 ];
+
+function pickLiveImage(...candidates) {
+  for (const candidate of candidates) {
+    const value = String(candidate || "").trim();
+    if (!value) continue;
+    if (
+      value === "/images/deal2.avif" ||
+      value === "/images/place2.avif" ||
+      value === "/images/deal1.jpg" ||
+      value === "/images/placeholder.webp"
+    ) continue;
+    return value;
+  }
+  return "";
+}
+
+function pickLiveImageFromProducts(products = []) {
+  if (!Array.isArray(products)) {
+    return "";
+  }
+
+  for (const product of products) {
+    const resolved = pickLiveImage(
+      product?.imageUrl,
+      product?.image,
+      Array.isArray(product?.images) ? product.images[0] : "",
+      product?.productImage
+    );
+
+    if (resolved) {
+      return resolved;
+    }
+  }
+
+  return "";
+}
 
 function QrPattern() {
   return (
@@ -78,6 +114,8 @@ function ClaimedOfferContent() {
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
   const [reviewMessage, setReviewMessage] = useState("");
+  const [merchantProfile, setMerchantProfile] = useState(null);
+  const [offerDetails, setOfferDetails] = useState(null);
 
   const voucherId = searchParams.get("voucherId");
 
@@ -172,6 +210,41 @@ function ClaimedOfferContent() {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [voucherId, selectedVoucher?.status, fetchVoucherDetails, setSelectedVoucher]);
+
+  useEffect(() => {
+    const merchantId = selectedVoucher?.merchantId;
+    const offerId = selectedVoucher?.offerId;
+
+    if (!merchantId && !offerId) {
+      setMerchantProfile(null);
+      setOfferDetails(null);
+      return;
+    }
+
+    let active = true;
+
+    (async () => {
+      try {
+        const [profileRes, offerRes] = await Promise.allSettled([
+          merchantId ? getPublicMerchantProfile(String(merchantId)) : Promise.resolve(null),
+          offerId ? getNearbyOfferDetails(String(offerId)) : Promise.resolve(null),
+        ]);
+
+        if (!active) return;
+
+        setMerchantProfile(profileRes.status === "fulfilled" ? profileRes.value?.data || null : null);
+        setOfferDetails(offerRes.status === "fulfilled" ? offerRes.value?.data || null : null);
+      } catch {
+        if (!active) return;
+        setMerchantProfile(null);
+        setOfferDetails(null);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [selectedVoucher?.merchantId, selectedVoucher?.offerId]);
 
   const handleDownloadQR = async () => {
     try {
@@ -410,29 +483,81 @@ function ClaimedOfferContent() {
     );
   }
 
+  const resolvedOfferTitle =
+    selectedVoucher?.offerTitle ||
+    offerDetails?.title ||
+    "Claimed Offer";
+  const resolvedMerchantName =
+    selectedVoucher?.merchantName ||
+    merchantProfile?.name ||
+    offerDetails?.merchant?.name ||
+    "Merchant";
+  const resolvedDescription =
+    offerDetails?.description ||
+    selectedVoucher?.discount ||
+    offerDetails?.exampleUsage ||
+    selectedVoucher?.description ||
+    "";
+  const resolvedOfferPrice = Number(
+    offerDetails?.displayPrice ?? offerDetails?.totalPrice ?? selectedVoucher?.price ?? 0,
+  );
+  const resolvedOriginalPrice = Number(
+    offerDetails?.totalPrice ?? selectedVoucher?.originalPrice ?? 0,
+  );
+  const resolvedMerchantRating = Number(merchantProfile?.averageRating ?? 0);
+  const resolvedMerchantReviews = Number(merchantProfile?.totalReviews ?? 0);
+  const resolvedMerchantLocation =
+    merchantProfile?.profile?.address ||
+    merchantProfile?.merchantProfile?.storeLocation ||
+    offerDetails?.merchant?.address ||
+    selectedVoucher?.merchantLocation ||
+    "";
+  const resolvedMerchantAvatar =
+    pickLiveImage(
+      merchantProfile?.profilePhoto,
+      merchantProfile?.merchantProfile?.profilePhoto,
+      offerDetails?.merchant?.profilePhoto,
+      offerDetails?.merchant?.shopPhoto
+    ) || "/images/place2.avif";
+  const selectedProductOfferImage = pickLiveImageFromProducts(offerDetails?.selectedProducts);
+  const resolvedOfferImage =
+    pickLiveImage(
+      offerDetails?.imageUrl,
+      offerDetails?.image,
+      selectedVoucher?.offerImage,
+      selectedProductOfferImage,
+      selectedVoucher?.selectedProducts?.[0]?.imageUrl,
+      selectedVoucher?.selectedProducts?.[0]?.image,
+      selectedVoucher?.image,
+      selectedVoucher?.productImage,
+      merchantProfile?.shopPhoto
+    ) || resolvedMerchantAvatar || "/images/place2.avif";
+
   return (
     <main className="min-h-screen bg-[#f3f3f3]">
       <Navbar />
 
       <div className="mx-auto max-w-[1260px] px-6 pt-5">
         <p className="text-[11px] text-[#7a7a7a]">Deals <span className="mx-1">›</span> <span className="font-medium">Claimed Offer</span></p>
-        <h1 className="mt-3 text-[44px] font-bold leading-none text-[#1e2228] tracking-[-0.02em]">{selectedVoucher?.offerTitle || "90-Minute Signature Massage Package"}</h1>
+        <h1 className="mt-3 text-[44px] font-bold leading-none text-[#1e2228] tracking-[-0.02em]">{resolvedOfferTitle}</h1>
 
         <section className="mt-6 grid gap-4 lg:grid-cols-[1.82fr_0.86fr]">
           <div className="overflow-hidden rounded-[12px] border border-[#d8dce3] bg-white shadow-[0_6px_18px_rgba(16,24,40,0.06)]">
             <div className="flex items-center gap-3 border-b border-[#e6e9ed] px-4 py-3">
               <div className="h-14 w-14 overflow-hidden rounded-[8px] border border-[#d9dde2]">
-                <Image src="/images/place2.avif" alt="Signature Wellness" width={56} height={56} className="h-full w-full object-cover" />
+                <Image src={resolvedOfferImage} alt={resolvedOfferTitle} width={56} height={56} className="h-full w-full object-cover" unoptimized />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <p className="truncate text-[15px] font-bold text-[#1d232c]">{selectedVoucher?.merchantName || "Signature Wellness Package"}</p>
+                  <p className="truncate text-[15px] font-bold text-[#1d232c]">{resolvedMerchantName}</p>
                   <span className="rounded bg-[#f45c92] px-1.5 py-0.5 text-[9px] font-bold text-white">CLAIMED</span>
                 </div>
-                <p className="mt-1 text-[11px] text-[#6d7681]">{selectedVoucher?.description || "90-Minute session with essential oils & hot stones"}</p>
+                <p className="mt-1 text-[11px] text-[#6d7681]">{resolvedDescription || resolvedOfferTitle}</p>
                 <div className="mt-1 flex items-center gap-2">
-                  <span className="text-[28px] font-bold leading-none text-[#e8a91e]">₹{selectedVoucher?.price || 150}</span>
-                  <span className="text-[11px] font-semibold text-[#ed6f6f] line-through">₹ {selectedVoucher?.originalPrice || 80}</span>
+                  <span className="text-[28px] font-bold leading-none text-[#e8a91e]">₹{resolvedOfferPrice.toLocaleString("en-IN")}</span>
+                  {resolvedOriginalPrice > resolvedOfferPrice ? (
+                    <span className="text-[11px] font-semibold text-[#ed6f6f] line-through">₹ {resolvedOriginalPrice.toLocaleString("en-IN")}</span>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -443,7 +568,7 @@ function ClaimedOfferContent() {
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={selectedVoucher.qrImage}
-                    alt={`QR code for ${selectedVoucher?.offerTitle || "claimed offer"}`}
+                    alt={`QR code for ${resolvedOfferTitle}`}
                     className="h-[164px] w-[164px] object-contain"
                   />
                 ) : (
@@ -498,7 +623,7 @@ function ClaimedOfferContent() {
                     if (navigator.share) {
                       navigator.share({
                         title: "Check this offer!",
-                        text: `${selectedVoucher?.offerTitle} - Get ₹${selectedVoucher?.price}!`,
+                        text: `${resolvedOfferTitle} - Get ₹${resolvedOfferPrice}!`,
                         url: window.location.href,
                       });
                     } else {
@@ -518,22 +643,28 @@ function ClaimedOfferContent() {
           <div className="space-y-3">
             <aside className="rounded-[12px] border border-[#d8dce3] bg-white p-4 shadow-[0_4px_14px_rgba(16,24,40,0.05)]">
               <div className="flex items-start gap-3">
-                <div className="h-12 w-12 overflow-hidden rounded-full border border-[#d8dce3]">
-                  <Image src="/images/hero.jpg" alt="Azure Wellness & Spa" width={64} height={64} className="h-full w-full object-cover" />
+                <div className="h-12 w-12 shrink-0 aspect-square overflow-hidden rounded-full border border-[#d8dce3]">
+                  <Image src={resolvedMerchantAvatar} alt={resolvedMerchantName} width={64} height={64} className="h-full w-full rounded-full object-cover" unoptimized />
                 </div>
                 <div>
-                  <p className="text-[15px] font-bold text-[#1f2329]">{selectedVoucher?.merchantName || "Azure Wellness & Spa"}</p>
-                  <p className="mt-1 text-[12px] text-[#66707b]"><Star size={11} className="mr-1 inline text-[#f4ba34]" />{selectedVoucher?.merchantRating || 4.9} ({selectedVoucher?.merchantReviews || 1240} Reviews)</p>
-                  <p className="mt-1 text-[12px] leading-5 text-[#66707b]"><MapPin size={11} className="mr-1 inline" />{selectedVoucher?.merchantLocation || "122 Blue Avenue, Suite 400, Manhattan, NY 10012"}</p>
+                  <p className="text-[15px] font-bold text-[#1f2329]">{resolvedMerchantName}</p>
+                  <p className="mt-1 text-[12px] text-[#66707b]"><Star size={11} className="mr-1 inline text-[#f4ba34]" />{resolvedMerchantRating.toFixed(1)} ({resolvedMerchantReviews.toLocaleString()} Reviews)</p>
+                  <p className="mt-1 text-[12px] leading-5 text-[#66707b]"><MapPin size={11} className="mr-1 inline" />{resolvedMerchantLocation || "Location unavailable"}</p>
                 </div>
               </div>
 
               <div className="mt-4 overflow-hidden rounded-[10px] border border-[#e4e7eb]">
-                <Image src="/images/banner3.avif" alt="Merchant highlight" width={420} height={240} className="h-[110px] w-full object-cover" />
+                <Image src={resolvedOfferImage} alt={resolvedOfferTitle} width={420} height={240} className="h-[110px] w-full object-cover" unoptimized />
               </div>
 
               <button
-                onClick={() => router.push(`/nearby-deals/store?merchantId=${selectedVoucher?.merchantId || ''}`)}
+                onClick={() => {
+                  const merchantStoreId = selectedVoucher?.merchantId;
+                  if (merchantStoreId) {
+                    sessionStorage.setItem("merchantId", merchantStoreId);
+                    router.push("/nearby-deals/store");
+                  }
+                }}
                 className="mt-4 h-10 w-full rounded-[8px] border border-[#e8b038] bg-[#f7ebcf] text-[12px] font-semibold text-[#8f6515] transition-colors hover:bg-[#f3dfb2]"
               >
                 View Store

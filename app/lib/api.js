@@ -30,7 +30,40 @@ export async function submitUserReport(userId, reason, description) {
 // Centralized API Layer — Choja Frontend → ads-microservice
 // ============================================================
 
+<<<<<<< HEAD
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:3002');
+=======
+const FALLBACK_API_URL = 'http://localhost:3002/api';
+
+function normalizeBackendApiBaseUrl(rawValue, fallbackUrl = FALLBACK_API_URL) {
+    const trimmedValue = String(rawValue || '').trim();
+
+    if (!trimmedValue) {
+        return fallbackUrl;
+    }
+
+    const protocolMatches = [...trimmedValue.matchAll(/https?:\/\//g)];
+    let normalizedValue = trimmedValue;
+
+    if (protocolMatches.length > 1) {
+        normalizedValue = trimmedValue.slice(protocolMatches[protocolMatches.length - 1].index);
+    }
+
+    normalizedValue = normalizedValue.replace(/\/+$/, '');
+
+    if (/^https?:\/\/[^/]+$/i.test(normalizedValue)) {
+        normalizedValue = `${normalizedValue}/api`;
+    }
+
+    return normalizedValue;
+}
+
+export const API_BASE_URL = normalizeBackendApiBaseUrl(process.env.NEXT_PUBLIC_API_URL);
+export const API_ORIGIN_URL = API_BASE_URL.replace(/\/api$/, '');
+// Always talk to the backend gateway directly so the frontend can use /api as
+// its own base path without colliding with API requests.
+const BASE_URL = API_BASE_URL;
+>>>>>>> ab702514040ebb26ccf6345e37517ad5d0c39df4
 const PUBLIC_AUTH_ENDPOINTS = new Set([
     '/users/login',
     '/users/register',
@@ -49,27 +82,11 @@ export async function apiClient(endpoint, options = {}) {
         ...options.headers,
     };
 
-    // Attach JWT token if available
-    if (typeof window !== 'undefined') {
-        const token = localStorage.getItem('accessToken');
-        if (token) {
-            // Debug token format
-            console.log(`[API] Using token for ${endpoint}: ${token.substring(0, 20)}...`);
-            headers['Authorization'] = `Bearer ${token}`;
-        } else if (!isPublicAuthEndpoint) {
-            console.warn(`[API] No token found in localStorage for ${endpoint}`);
-        }
-    }
-
     const config = {
         ...options,
         headers,
+        credentials: 'include',
     };
-
-    console.log(`[API] ${options.method || 'GET'} ${endpoint} with headers:`, {
-        'Content-Type': headers['Content-Type'],
-        'Authorization': headers['Authorization'] ? 'Present' : 'Missing',
-    });
 
     let response;
     try {
@@ -91,11 +108,8 @@ export async function apiClient(endpoint, options = {}) {
 
     // Handle 401 — try to refresh token
     if (response.status === 401 && typeof window !== 'undefined' && !isPublicAuthEndpoint) {
-        console.warn(`[API] Got 401 for ${endpoint} - attempting token refresh`);
         const refreshed = await tryRefreshToken();
         if (refreshed) {
-            // Retry original request with new token
-            headers['Authorization'] = `Bearer ${localStorage.getItem('accessToken')}`;
             const retryResponse = await fetch(url, { ...config, headers });
             return handleResponse(retryResponse);
         }
@@ -124,28 +138,18 @@ async function handleResponse(response) {
 
 async function tryRefreshToken() {
     try {
-        const refreshToken = localStorage.getItem('refreshToken');
-        if (!refreshToken) return false;
-
         const response = await fetch(`${BASE_URL}/users/refresh`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ refreshToken }),
+            credentials: 'include',
         });
 
         if (!response.ok) {
-            // Refresh failed — clear tokens
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('refreshToken');
             localStorage.removeItem('user');
+            window.dispatchEvent(new Event('golo-auth-cleared'));
             return false;
         }
 
-        const data = await response.json();
-        localStorage.setItem('accessToken', data.data.accessToken);
-        if (data.data.refreshToken) {
-            localStorage.setItem('refreshToken', data.data.refreshToken);
-        }
         return true;
     } catch {
         return false;
@@ -203,17 +207,15 @@ export async function registerUser({
     });
 }
 
-export async function refreshTokenApi(refreshToken) {
+export async function refreshTokenApi() {
     return apiClient('/users/refresh', {
         method: 'POST',
-        body: JSON.stringify({ refreshToken }),
     });
 }
 
-export async function logoutUser(refreshToken) {
+export async function logoutUser() {
     return apiClient('/users/logout', {
         method: 'POST',
-        body: JSON.stringify({ refreshToken }),
     });
 }
 
@@ -237,18 +239,9 @@ export async function updateProfile(data) {
 }
 
 export async function sendPasswordChangeOTP() {
-    try {
-        const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
-        if (!token) {
-            throw new Error('No authentication token found. Please login again.');
-        }
-        return apiClient('/users/send-password-otp', {
-            method: 'POST',
-        });
-    } catch (error) {
-        console.error('OTP Error:', error);
-        throw error;
-    }
+    return apiClient('/users/send-password-otp', {
+        method: 'POST',
+    });
 }
 
 export async function verifyPasswordChangeOTP(otp) {
@@ -262,6 +255,13 @@ export async function changePasswordWithOTP(otp, newPassword) {
     return apiClient('/users/change-password-otp', {
         method: 'POST',
         body: JSON.stringify({ otp, newPassword }),
+    });
+}
+
+export async function changePassword(currentPassword, newPassword) {
+    return apiClient('/users/change-password', {
+        method: 'POST',
+        body: JSON.stringify({ currentPassword, newPassword }),
     });
 }
 
@@ -364,7 +364,13 @@ export async function getTrendingSearches(limit = 10) {
 }
 
 export async function getRecommendedDeals(limit = 10) {
-    return apiClient(`/ads/home/recommended?limit=${limit}`);
+    // New backend recommendations endpoint (requires auth)
+    return apiClient(`/recommendations/deals?limit=${limit}`);
+}
+
+// Persist user's preferred categories (array of strings)
+export async function savePreferredCategories(categories = []) {
+    return updateProfile({ preferredCategories: categories });
 }
 
 export async function getPopularPlaces(limit = 10) {
@@ -551,13 +557,20 @@ export async function getMyBannerPromotions() {
 }
 
 export async function getMyOfferPromotions() {
+<<<<<<< HEAD
     const response = await apiClient('/banners/promotions/my?type=offer');
+=======
+    const response = await apiClient('/offers/my', {
+        cache: 'no-store',
+    });
+>>>>>>> ab702514040ebb26ccf6345e37517ad5d0c39df4
     const rows = Array.isArray(response?.data) ? response.data : [];
-    const trackedOfferIds = readTrackedOfferPromotionIds();
 
+    // Return server-provided offer rows directly. Client-side localStorage
+    // filtering hid offers on other devices (tracked IDs are device-local).
     return {
         ...response,
-        data: rows.filter((row) => isOfferRow(row, trackedOfferIds)),
+        data: rows,
     };
 }
 
@@ -572,7 +585,11 @@ export async function getActiveHomepageBanners(limit = 5) {
     return apiClient(`/banners/promotions/active?limit=${limit}`);
 }
 
+<<<<<<< HEAD
 const LOCAL_BACKEND_URL = 'http://localhost:3002';
+=======
+const LOCAL_BACKEND_URL = API_BASE_URL;
+>>>>>>> ab702514040ebb26ccf6345e37517ad5d0c39df4
 let nearbyOffersRouteMissingOnPrimary = false;
 const NEARBY_OFFERS_PRIMARY_UNSUPPORTED_KEY = 'golo_nearby_offers_primary_unsupported';
 
@@ -613,18 +630,12 @@ async function fetchAbsoluteJson(url) {
         'Content-Type': 'application/json',
     };
 
-    if (typeof window !== 'undefined') {
-        const token = localStorage.getItem('accessToken');
-        if (token) {
-            headers['Authorization'] = `Bearer ${token}`;
-        }
-    }
-
     let response;
     try {
         response = await fetch(url, {
             method: 'GET',
             headers,
+            credentials: 'include',
         });
     } catch (error) {
         const networkError = new Error(`Unable to connect to ${url}`);
@@ -661,9 +672,13 @@ export async function getNearbyOffers({
     sort,
     maxPrice,
     applyPriceFilter = false,
+    offerTypes,
+    topDiscountOnly = false,
+    activeNowOnly = true,
     page = 1,
     limit = 20,
-} = {}) {
+    _t,  // cache buster (ignored by backend, just varies cache key)
+  } = {}) {
     const params = new URLSearchParams();
     if (typeof lat === 'number' && !Number.isNaN(lat)) params.set('lat', String(lat));
     if (typeof lng === 'number' && !Number.isNaN(lng)) params.set('lng', String(lng));
@@ -672,6 +687,9 @@ export async function getNearbyOffers({
     if (q) params.set('q', String(q));
     if (category) params.set('category', String(category));
     if (sort) params.set('sort', String(sort));
+    if (offerTypes) params.set('offerTypes', String(offerTypes));
+    if (topDiscountOnly) params.set('topDiscount', String(topDiscountOnly));
+    if (activeNowOnly === false) params.set('activeNow', 'false');
     if (
         applyPriceFilter &&
         typeof maxPrice === 'number' &&
@@ -680,6 +698,7 @@ export async function getNearbyOffers({
     ) {
         params.set('maxPrice', String(maxPrice));
     }
+    if (_t) params.set('_t', String(_t));  // cache buster
     params.set('page', String(page));
     params.set('limit', String(limit));
     const endpoint = `/banners/promotions/offers/nearby?${params.toString()}`;
@@ -970,6 +989,10 @@ export async function createMerchantProduct(payload) {
 
 export async function getMerchantProductById(productId) {
     return apiClient(`/merchant/products/${productId}`);
+}
+
+export async function getPublicMerchantProductById(productId) {
+    return apiClient(`/merchant/products/public/item/${productId}`);
 }
 
 export async function deleteMerchantProduct(productId) {
@@ -1365,6 +1388,21 @@ export async function updateMerchantProduct(productId, updateData) {
 }
 
 // ============================================================
+<<<<<<< HEAD
+=======
+// MERCHANT ANALYTICS APIS
+// ============================================================
+
+/**
+ * Get merchant's liked products (offers sorted by wishlist count)
+ * @param {number} limit - Number of results to return
+ */
+export async function getMerchantLikedProducts(limit = 10) {
+    return apiClient(`/users/merchant/liked-products?limit=${limit}`);
+}
+
+// ============================================================
+>>>>>>> ab702514040ebb26ccf6345e37517ad5d0c39df4
 // BANNER PROMOTION APIs
 // ============================================================
 
@@ -1468,4 +1506,74 @@ export async function verifyVoucherByCode(code) {
         method: 'POST',
         body: JSON.stringify({ code }),
     });
+}
+
+// ============================================================
+// USER DEALS & VOUCHERS APIs
+// ============================================================
+
+/**
+ * Get user's claimed vouchers/deals
+ * @param {object} params - {page, limit, status}
+ */
+export async function getUserVouchers({ page = 1, limit = 50, status } = {}) {
+    let url = `/vouchers/my-vouchers?page=${page}&limit=${limit}`;
+    if (status) url += `&status=${status}`;
+    return apiClient(url);
+}
+
+/**
+ * Calculate user deal statistics
+ * Fetches all user vouchers and calculates redeemed deals and savings
+ */
+export async function getUserDealStatistics() {
+    try {
+        const result = await getUserVouchers({ limit: 100 });
+        if (!result.success || !result.data) {
+            return {
+                dealsRedeemed: 0,
+                totalSavings: 0,
+                expired: [],
+            };
+        }
+
+        const vouchers = result.data || [];
+        let dealsRedeemed = 0;
+        let totalSavings = 0;
+        const expired = [];
+
+        const now = new Date();
+
+        vouchers.forEach(voucher => {
+            // Check if voucher is redeemed (status: 'redeemed', 'partially_redeemed', 'used')
+            if (voucher.status === 'redeemed' || voucher.status === 'used' || voucher.status === 'partially_redeemed') {
+                dealsRedeemed++;
+                // Add any discount/savings value from the offer
+                if (voucher.discountValue) {
+                    totalSavings += voucher.discountValue;
+                } else if (voucher.offer?.discountValue) {
+                    totalSavings += voucher.offer.discountValue;
+                }
+            }
+
+            // Check if voucher is expired
+            if (voucher.expiryDate && new Date(voucher.expiryDate) < now) {
+                expired.push(voucher._id || voucher.id);
+            }
+        });
+
+        return {
+            dealsRedeemed,
+            totalSavings,
+            expired,
+            allVouchers: vouchers,
+        };
+    } catch (error) {
+        console.error('Error calculating deal statistics:', error);
+        return {
+            dealsRedeemed: 0,
+            totalSavings: 0,
+            expired: [],
+        };
+    }
 }

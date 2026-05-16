@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../context/AuthContext";
 import AuthRequiredModal from "./AuthRequiredModal";
 import { getNotifications, markNotificationRead, markAllNotificationsRead } from "../lib/api";
+import { normalizeAppPath } from "../lib/path";
 
 function NavbarContent({
   searchQuery: externalSearchQuery = "",
@@ -47,7 +48,7 @@ function NavbarContent({
   const profileRef = useRef(null);
   const notifRef = useRef(null);
   const router = useRouter();
-  const pathname = usePathname();
+  const pathname = normalizeAppPath(usePathname());
   const { user, isAuthenticated, logout } = useAuth();
   const logoHref = isAuthenticated && user?.accountType === "merchant"
     ? "/"
@@ -348,7 +349,11 @@ function NavbarContent({
             <Link href={primaryNavHref} onClick={requireAuth()} className="hover:opacity-80 transition">
               {primaryNavLabel}
             </Link>
-            <Link href={secondaryNavHref} onClick={requireAuth()} className="hover:opacity-80 transition">
+            <Link
+              href={secondaryNavHref}
+              onClick={useGolocalHomeNav ? undefined : requireAuth()}
+              className="hover:opacity-80 transition"
+            >
               {secondaryNavLabel}
             </Link>
           </nav>

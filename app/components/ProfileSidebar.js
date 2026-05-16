@@ -3,10 +3,13 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { User, Package, Heart, LogOut, BarChart2 } from "lucide-react";
+import { normalizeAppPath } from "../lib/path";
+import { useAuth } from "../context/AuthContext";
 
 export default function ProfileSidebar() {
-  const pathname = usePathname();
+  const pathname = normalizeAppPath(usePathname());
   const router = useRouter();
+  const { logout } = useAuth();
 
   const linkStyle = (path) =>
     `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
@@ -25,10 +28,7 @@ export default function ProfileSidebar() {
     }`;
 
   const handleLogout = () => {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-    localStorage.removeItem("user");
-    router.push("/login");
+    logout().finally(() => router.push("/login"));
   };
 
   return (

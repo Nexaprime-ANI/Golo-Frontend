@@ -70,12 +70,10 @@ export default function SocialButtons({ redirectPath = "/" }) {
 			});
 
 			const authData = backendAuth?.data;
-			if (!authData?.accessToken || !authData?.refreshToken || !authData?.user) {
+			if (!authData?.user) {
 				throw new Error("Social login response is invalid.");
 			}
 
-			localStorage.setItem("accessToken", authData.accessToken);
-			localStorage.setItem("refreshToken", authData.refreshToken);
 			localStorage.setItem("user", JSON.stringify(authData.user));
 
 			await refreshProfile();

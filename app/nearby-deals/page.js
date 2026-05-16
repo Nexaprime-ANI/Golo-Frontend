@@ -8,6 +8,7 @@ import { useAuth } from "../context/AuthContext";
 import Navbar from "../components/Navbar";
 import CategoryBar from "../components/CategoryBar";
 import Footer from "../components/Footer";
+import AuthRequiredModal from "../components/AuthRequiredModal";
 import { getNearbyOffers } from "../lib/api";
 
 const OFFER_TYPES = [
@@ -44,6 +45,69 @@ const SORT_OPTIONS = [
 function toNumber(value, fallback = 0) {
   const parsed = Number(value);
   return Number.isNaN(parsed) ? fallback : parsed;
+}
+
+function getDaysRemainingText(endDate) {
+  if (!endDate) return null;
+  const end = new Date(endDate).getTime();
+  if (Number.isNaN(end)) return null;
+  const diff = end - Date.now();
+  if (diff <= 0) return "Expired";
+  const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+  return days <= 1 ? "1 day left" : `${days} days left`;
+}
+
+function computeBestDiscountPercent(products = [], fallback = 0) {
+  const fallbackValue = toNumber(fallback, 0);
+  if (fallbackValue > 0) {
+    return Math.max(0, Math.round(fallbackValue));
+  }
+
+  return Math.round(
+    products.reduce((best, product) => {
+      const original = toNumber(product?.originalPrice, 0);
+      const offer = toNumber(product?.offerPrice, 0);
+      if (original <= 0 || offer < 0 || offer >= original) {
+        return best;
+      }
+      const discount = ((original - offer) / original) * 100;
+      return Math.max(best, discount);
+    }, 0),
+  );
+}
+
+function computeStartingPrice(products = [], fallback = 0) {
+  const fallbackValue = toNumber(fallback, 0);
+  if (fallbackValue > 0) {
+    return fallbackValue;
+  }
+
+  if (!Array.isArray(products) || products.length === 0) {
+    return fallbackValue;
+  }
+
+  const values = products
+    .map((item) => toNumber(item?.offerPrice, 0))
+    .filter((price) => price > 0);
+
+  if (!values.length) {
+    return fallbackValue;
+  }
+
+  return values.reduce((sum, price) => sum + price, 0);
+}
+
+function normalizeNearbyOffer(row) {
+  const selectedProducts = Array.isArray(row?.selectedProducts) ? row.selectedProducts : [];
+  const displayPrice = computeStartingPrice(selectedProducts, row?.displayPrice || row?.totalPrice);
+  const discountPercent = computeBestDiscountPercent(selectedProducts, row?.discountPercent);
+
+  return {
+    ...row,
+    selectedProducts,
+    displayPrice,
+    discountPercent,
+  };
 }
 
 function formatDistance(distanceKm) {
@@ -115,15 +179,16 @@ function matchOfferType(row, typeLabel) {
 function NearbyDealsPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+   const { isAuthenticated, user } = useAuth();
 
   const [activeView, setActiveView] = useState("grid");
-  const [distanceRadius, setDistanceRadius] = useState(5);
+  const [distanceRadius, setDistanceRadius] = useState(50);
   const [priceRange, setPriceRange] = useState(5000);
   const [userCoordinates, setUserCoordinates] = useState(null);
   const [locationStatus, setLocationStatus] = useState("detecting");
   const [locationError, setLocationError] = useState("");
   const [topDiscountOnly, setTopDiscountOnly] = useState(false);
-  const [activeNowOnly, setActiveNowOnly] = useState(false);
+  const [activeNowOnly, setActiveNowOnly] = useState(true);
   const [sortBy, setSortBy] = useState("nearest");
   const [selectedOfferTypes, setSelectedOfferTypes] = useState({
     Special: false,
@@ -150,10 +215,18 @@ function NearbyDealsPageContent() {
   const [rawOffers, setRawOffers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
+  const [authRedirectTo, setAuthRedirectTo] = useState("/nearby-deals");
   const lastLocationUpdateRef = useRef(0);
+
+  const selectedTypeLabels = useMemo(
+    () => Object.keys(selectedOfferTypes).filter((key) => selectedOfferTypes[key]),
+    [selectedOfferTypes],
+  );
 
   const location = useMemo(() => searchParams.get("location") || "", [searchParams]);
   const query = useMemo(() => searchParams.get("q") || "", [searchParams]);
+  const selectedCategory = useMemo(() => searchParams.get("category") || "", [searchParams]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !("geolocation" in navigator)) {
@@ -267,37 +340,59 @@ function NearbyDealsPageContent() {
           ? userCoordinates.lng
           : undefined;
 
+      // If user explicitly provided a location (navbar/manual), prefer that
+      // and do not constrain results by current GPS coordinates.
+      const useManualLocation = Boolean(location && String(location).trim().length > 0);
+      const fetchLat = useManualLocation ? undefined : resolvedLat;
+      const fetchLng = useManualLocation ? undefined : resolvedLng;
+
       try {
         const response = await getNearbyOffers({
-          lat: resolvedLat,
-          lng: resolvedLng,
+          lat: fetchLat,
+          lng: fetchLng,
           radiusKm: distanceRadius,
           location,
           q: query,
+          category: selectedCategory || undefined,
+          sort: sortBy,
           maxPrice: priceRange < 5000 ? priceRange : undefined,
           applyPriceFilter: priceRange < 5000,
+          offerTypes: selectedTypeLabels.join(','),
+          topDiscountOnly: topDiscountOnly,
+          activeNowOnly: activeNowOnly,
           page: 1,
           limit: 100,
         });
 
-        const primaryRows = Array.isArray(response?.data) ? response.data : [];
+        const primaryRows = Array.isArray(response?.data)
+          ? response.data.map(normalizeNearbyOffer)
+          : [];
 
         // Graceful fallback: if strict geofence returns empty, show relevant offers
         // instead of a blank state (helps when merchant coords are incomplete/inaccurate).
-        if (primaryRows.length === 0 && resolvedLat !== undefined && resolvedLng !== undefined) {
+        if (primaryRows.length === 0 && fetchLat !== undefined && fetchLng !== undefined) {
           const fallbackResponse = await getNearbyOffers({
             lat: undefined,
             lng: undefined,
             radiusKm: distanceRadius,
             location,
             q: query,
+            category: selectedCategory || undefined,
+            sort: sortBy,
             maxPrice: priceRange < 5000 ? priceRange : undefined,
             applyPriceFilter: priceRange < 5000,
+            offerTypes: selectedTypeLabels.join(','),
+            topDiscountOnly: topDiscountOnly,
+            activeNowOnly: activeNowOnly,
             page: 1,
             limit: 100,
           });
 
-          setRawOffers(Array.isArray(fallbackResponse?.data) ? fallbackResponse.data : []);
+          setRawOffers(
+            Array.isArray(fallbackResponse?.data)
+              ? fallbackResponse.data.map(normalizeNearbyOffer)
+              : [],
+          );
         } else {
           setRawOffers(primaryRows);
         }
@@ -310,15 +405,11 @@ function NearbyDealsPageContent() {
     };
 
     loadNearbyOffers();
-  }, [distanceRadius, priceRange, location, query, userCoordinates?.lat, userCoordinates?.lng]);
-
-  const selectedTypeLabels = useMemo(
-    () => Object.keys(selectedOfferTypes).filter((key) => selectedOfferTypes[key]),
-    [selectedOfferTypes],
-  );
+  }, [distanceRadius, priceRange, location, query, selectedCategory, sortBy, userCoordinates?.lat, userCoordinates?.lng, selectedTypeLabels, topDiscountOnly, activeNowOnly]);
 
   const filteredDeals = useMemo(() => {
     const rows = rawOffers.filter((row) => {
+      // Respect activeNowOnly toggle: when enabled, hide offers outside visibility window.
       if (activeNowOnly && !row?.isActiveNow) {
         return false;
       }
@@ -361,14 +452,21 @@ function NearbyDealsPageContent() {
       return sortedRows;
     }
 
+    // Keep the selected sort order stable while prioritizing rows matching manual location.
     const locationNeedle = String(location).trim().toLowerCase();
-    return sortedRows.sort((a, b) => {
-      const addressA = String(a?.merchant?.address || "").toLowerCase();
-      const addressB = String(b?.merchant?.address || "").toLowerCase();
-      const scoreA = addressA.includes(locationNeedle) ? 1 : 0;
-      const scoreB = addressB.includes(locationNeedle) ? 1 : 0;
-      return scoreB - scoreA;
-    });
+    const matched = [];
+    const unmatched = [];
+
+    for (const row of sortedRows) {
+      const address = String(row?.merchant?.address || "").toLowerCase();
+      if (address.includes(locationNeedle)) {
+        matched.push(row);
+      } else {
+        unmatched.push(row);
+      }
+    }
+
+    return [...matched, ...unmatched];
   }, [rawOffers, activeNowOnly, topDiscountOnly, selectedTypeLabels, location, sortBy]);
 
   const summary = useMemo(() => {
@@ -385,10 +483,10 @@ function NearbyDealsPageContent() {
   }, [filteredDeals]);
 
   const clearAllFilters = () => {
-    setDistanceRadius(5);
+    setDistanceRadius(50);
     setPriceRange(5000);
     setTopDiscountOnly(false);
-    setActiveNowOnly(false);
+    setActiveNowOnly(true);
     setSortBy("nearest");
     setSelectedOfferTypes({
       Special: false,
@@ -415,6 +513,14 @@ function NearbyDealsPageContent() {
   };
 
   const openDealDetails = (deal) => {
+    const targetUrl = `/nearby-deals/deal?offerId=${deal.offerId}`;
+
+    if (!isAuthenticated) {
+      setAuthRedirectTo(targetUrl);
+      setShowAuthPrompt(true);
+      return;
+    }
+
     if (typeof window !== "undefined") {
       try {
         sessionStorage.setItem(
@@ -425,13 +531,13 @@ function NearbyDealsPageContent() {
       }
     }
 
-    router.push(`/nearby-deals/deal?offerId=${deal.offerId}`);
+    router.push(targetUrl);
   };
 
   return (
     <main className="min-h-screen bg-[#F3F3F3]">
       <Navbar />
-      <CategoryBar variant="golocal" />
+       <CategoryBar variant="golocal" preferredCategories={user?.preferredCategories || []} />
 
       <section className="mx-auto max-w-[1400px] px-6 py-6">
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[260px_1fr]">
@@ -532,9 +638,10 @@ function NearbyDealsPageContent() {
           <div>
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
-                <h1 className="text-[34px] font-extrabold text-gray-900">Deals near you</h1>
+                <h1 className="text-[34px] font-extrabold text-gray-900">{selectedCategory || "Deals near you"}</h1>
                 <p className="mt-1 text-xs text-gray-500">
                   Showing {summary.total} offers
+                  {selectedCategory ? ` in ${selectedCategory}` : ""}
                   {query ? ` for \"${query}\"` : ""}
                   {location ? ` in ${location}` : ""}
                 </p>
@@ -606,10 +713,10 @@ function NearbyDealsPageContent() {
               ) : (
                 filteredDeals.map((deal) => (
                   <article
-                    key={deal.offerId}
-                    className="group overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[#157A4F] hover:shadow-lg"
-                  >
-                    <div className="relative h-36 w-full overflow-hidden bg-gray-100">
+                      key={deal.offerId}
+                      className="group flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[#157A4F] hover:shadow-lg"
+                    >
+                      <div className="relative h-36 w-full overflow-hidden bg-gray-100">
                       <img
                         src={deal.imageUrl || "/images/deal2.avif"}
                         alt={deal.title}
@@ -621,8 +728,11 @@ function NearbyDealsPageContent() {
                       <span className="absolute left-2 top-8 rounded-md bg-white/95 px-2 py-0.5 text-[9px] font-semibold text-gray-700 shadow-sm">
                         {formatDistance(deal.distanceKm)}
                       </span>
+                      <span className={`absolute right-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm ${getDaysRemainingText(deal.endsAt) === "Expired" ? "bg-red-500 text-white" : "bg-white/95 text-[#157A4F]"}`}>
+                        {getDaysRemainingText(deal.endsAt) || "N/A"}
+                      </span>
                     </div>
-                    <div className="p-3">
+                    <div className="p-3 flex flex-col flex-1">
                       <h3 className="line-clamp-1 text-sm font-bold text-gray-900">{deal.title}</h3>
                       <p className="mt-1 text-[11px] text-gray-500">{deal.merchant?.name || "Merchant"}</p>
                       <p className="mt-2 text-[11px] text-gray-500 line-clamp-1 flex items-center gap-1">
@@ -640,7 +750,7 @@ function NearbyDealsPageContent() {
                       </p>
                       <button
                         onClick={() => openDealDetails(deal)}
-                        className="mt-3 w-full rounded-lg border border-gray-200 bg-[#F7F7F7] py-2 text-xs font-bold text-gray-800 transition-colors duration-200 hover:border-[#157A4F] hover:bg-[#157A4F] hover:text-white"
+                        className="mt-auto w-full rounded-lg border border-gray-200 bg-[#F7F7F7] py-2 text-xs font-bold text-gray-800 transition-colors duration-200 hover:border-[#157A4F] hover:bg-[#157A4F] hover:text-white"
                       >
                         View Deal
                       </button>
@@ -654,6 +764,14 @@ function NearbyDealsPageContent() {
       </section>
 
       <Footer />
+
+      <AuthRequiredModal
+        isOpen={showAuthPrompt}
+        onClose={() => setShowAuthPrompt(false)}
+        title="Login or Register"
+        description="Please log in or register to open deal details. You can still browse nearby deals without signing in."
+        redirectTo={authRedirectTo}
+      />
     </main>
   );
 }
@@ -664,21 +782,21 @@ function NearbyDealsSkeleton({ view = "grid" }) {
       {Array.from({ length: view === "list" ? 5 : 8 }).map((_, idx) => (
         <article
           key={idx}
-          className="group overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
+          className="group flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
         >
           <div className="relative h-36 w-full overflow-hidden bg-gray-100">
             <div className="h-full w-full animate-pulse bg-[#e6ebf1]" />
             <span className="absolute left-2 top-2 h-5 w-20 animate-pulse rounded-full bg-[#d9dee5]" />
             <span className="absolute left-2 top-8 h-4 w-16 animate-pulse rounded-md bg-[#e2e6ec]" />
           </div>
-          <div className="p-3">
+          <div className="p-3 flex flex-col flex-1">
             <div className="h-4 w-3/4 animate-pulse rounded bg-[#e5e7eb]" />
             <div className="mt-2 h-3 w-1/2 animate-pulse rounded bg-[#edf0f4]" />
             <div className="mt-2 h-3 w-full animate-pulse rounded bg-[#edf0f4]" />
             <div className="mt-2 h-3 w-5/6 animate-pulse rounded bg-[#edf0f4]" />
             <div className="mt-2 h-3 w-2/3 animate-pulse rounded bg-[#edf0f4]" />
             <div className="mt-2 h-6 w-1/3 animate-pulse rounded bg-[#e5e7eb]" />
-            <div className="mt-3 h-[34px] w-full animate-pulse rounded-lg bg-[#e5e7eb]" />
+            <div className="mt-auto h-[34px] w-full animate-pulse rounded-lg bg-[#e5e7eb]" />
           </div>
         </article>
       ))}

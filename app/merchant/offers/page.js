@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Plus, Search } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import MerchantNavbar from "../MerchantNavbar";
+import OfferProductEditor from "./components/OfferProductEditor";
 import {
   deleteMyOfferPromotion,
   getMyOfferPromotions,
@@ -17,13 +18,28 @@ const OFFER_CATEGORIES = [
   "Limited Time",
   "Combo",
   "Clearance",
+  "Flash Sale",
+  "Buy One Get One (BOGO)",
+  "Flat Discount",
+  "Percentage Off",
+  "Bundle Deal",
+  "New Arrival Offer",
+  "Seasonal Offer",
+  "Weekend Offer",
+  "Happy Hour Deal",
+  "Member Exclusive",
+  "First Purchase Offer",
+  "Loyalty Reward",
+  "Referral Offer",
+  "Clear Stock Sale",
+  "Free Gift Offer",
 ];
 
 function buildSelectedDates(startDate, endDate) {
   if (!startDate) return [];
 
-  const start = new Date(startDate);
-  const end = new Date(endDate || startDate);
+  const start = new Date(`${startDate}T00:00:00Z`);
+  const end = new Date(`${endDate || startDate}T00:00:00Z`);
 
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return [];
 
@@ -33,7 +49,7 @@ function buildSelectedDates(startDate, endDate) {
 
   while (cursor <= end && guard < 366) {
     dates.push(cursor.toISOString().slice(0, 10));
-    cursor.setDate(cursor.getDate() + 1);
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
     guard += 1;
   }
 
@@ -42,9 +58,46 @@ function buildSelectedDates(startDate, endDate) {
 
 function toDateInputValue(dateValue) {
   if (!dateValue) return "";
+  if (typeof dateValue === "string" && /^\d{4}-\d{2}-\d{2}/.test(dateValue)) {
+    return dateValue.slice(0, 10);
+  }
+
   const date = new Date(dateValue);
   if (Number.isNaN(date.getTime())) return "";
-  return date.toISOString().slice(0, 10);
+
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function formatDateForDisplay(dateValue) {
+  const normalized = toDateInputValue(dateValue);
+  if (!normalized) return "-";
+
+  const [year, month, day] = normalized.split("-").map(Number);
+  if (!year || !month || !day) return normalized;
+
+  const utcDate = new Date(Date.UTC(year, month - 1, day));
+  return utcDate.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+function normalizeSelectedProducts(selectedProducts = []) {
+  return Array.isArray(selectedProducts)
+    ? selectedProducts.map((item) => ({
+        productId: String(item?.productId || item?.id || ""),
+        productName: String(item?.productName || item?.name || "Product"),
+        imageUrl: String(item?.imageUrl || item?.image || ""),
+        originalPrice: Number(item?.originalPrice || item?.price || 0),
+        offerPrice: Number(item?.offerPrice || item?.price || 0),
+        stockQuantity: Number(item?.stockQuantity || item?.stock || 0),
+      })).filter((item) => item.productId)
+    : [];
 }
 
 export default function MerchantOffersPage() {
@@ -64,8 +117,8 @@ export default function MerchantOffersPage() {
     imageUrl: "",
     startDate: "",
     endDate: "",
-    totalPrice: "0",
   });
+  const [selectedProducts, setSelectedProducts] = useState([]);
 
   const loadOffers = async () => {
     try {
@@ -115,8 +168,8 @@ export default function MerchantOffersPage() {
       imageUrl: "",
       startDate: "",
       endDate: "",
-      totalPrice: "0",
     });
+    setSelectedProducts([]);
     setEditingOfferId(null);
     setFormError("");
   };
@@ -129,11 +182,16 @@ export default function MerchantOffersPage() {
       imageUrl: offer.imageUrl || "",
       startDate: toDateInputValue(offer.startDate),
       endDate: toDateInputValue(offer.endDate),
-      totalPrice: String(offer.totalPrice ?? 0),
     });
+    setSelectedProducts(normalizeSelectedProducts(offer.selectedProducts));
     setFormError("");
     setFormOpen(true);
   };
+
+  const totalOfferValue = useMemo(
+    () => selectedProducts.reduce((sum, item) => sum + Number(item.offerPrice || 0), 0),
+    [selectedProducts],
+  );
 
   const closeForm = () => {
     setFormOpen(false);
@@ -154,6 +212,11 @@ export default function MerchantOffersPage() {
       return;
     }
 
+    if (selectedProducts.length === 0) {
+      setFormError("Please add at least one product to this offer.");
+      return;
+    }
+
     setFormSubmitting(true);
     try {
       setError("");
@@ -163,12 +226,51 @@ export default function MerchantOffersPage() {
           formData.endDate || formData.startDate,
         );
 
+        const updatedTitle = title;
+        const updatedCategory = formData.category;
+        const updatedImageUrl = formData.imageUrl.trim();
+        const updatedEndDate = formData.endDate || formData.startDate;
+        const updatedSelectedProducts = selectedProducts.map((item) => ({
+          productId: item.productId,
+          productName: item.productName,
+          imageUrl: item.imageUrl || "",
+          originalPrice: Number(item.originalPrice || 0),
+          offerPrice: Number(item.offerPrice || 0),
+          stockQuantity: Number(item.stockQuantity || 0),
+        }));
+
         await updateMyOfferPromotion(editingOfferId, {
+<<<<<<< HEAD
           bannerTitle: title,
           bannerCategory: formData.category,
           imageUrl: formData.imageUrl.trim(),
+=======
+          title: updatedTitle,
+          category: updatedCategory,
+          imageUrl: updatedImageUrl,
+>>>>>>> ab702514040ebb26ccf6345e37517ad5d0c39df4
           selectedDates,
+          totalPrice: Math.round(totalOfferValue),
+          selectedProducts: updatedSelectedProducts,
         });
+
+        setOffers((currentOffers) =>
+          currentOffers.map((offer) =>
+            offer.requestId === editingOfferId
+              ? {
+                  ...offer,
+                  title: updatedTitle,
+                  category: updatedCategory,
+                  imageUrl: updatedImageUrl,
+                  selectedDates,
+                  selectedProducts: updatedSelectedProducts,
+                  totalPrice: Math.round(totalOfferValue),
+                  startDate: formData.startDate,
+                  endDate: updatedEndDate,
+                }
+              : offer,
+          ),
+        );
       }
 
       await loadOffers();
@@ -323,15 +425,10 @@ export default function MerchantOffersPage() {
                     />
                   </div>
 
-                  <div>
-                    <label className="mb-1 block text-[11px] font-semibold text-[#555]">Offer Value (Rs)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={formData.totalPrice}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, totalPrice: e.target.value }))}
-                      className="h-9 w-full rounded-[8px] border border-[#dedede] bg-white px-3 text-[12px] outline-none"
+                  <div className="md:col-span-2">
+                    <OfferProductEditor
+                      value={selectedProducts}
+                      onChange={setSelectedProducts}
                     />
                   </div>
 
@@ -372,8 +469,13 @@ export default function MerchantOffersPage() {
                     </tr>
                   ) : filteredOffers.map((row) => (
                     <tr key={row.requestId} className="border-t border-[#f0f0f0]">
+<<<<<<< HEAD
                       <td className="px-4 py-3 font-semibold text-[#2a2a2a]">{row.bannerTitle}</td>
                       <td className="px-4 py-3 text-[#2c2c2c]">{new Date(row.createdAt).toLocaleDateString()}</td>
+=======
+                      <td className="px-4 py-3 font-semibold text-[#2a2a2a]">{row.title}</td>
+                      <td className="px-4 py-3 text-[#2c2c2c]">{formatDateForDisplay(row.createdAt)}</td>
+>>>>>>> ab702514040ebb26ccf6345e37517ad5d0c39df4
                       <td className="px-4 py-3">
                         {row.status === "active" ? (
                           <span className="inline-flex rounded-full bg-[#e7f7ec] px-2 py-0.5 text-[10px] font-semibold text-[#2f9e58]">Active</span>
@@ -381,7 +483,7 @@ export default function MerchantOffersPage() {
                           <span className="inline-flex rounded-full bg-[#eef0f3] px-2 py-0.5 text-[10px] font-semibold text-[#4a4f57]">{String(row.status || "unknown")}</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-[#2c2c2c]">{new Date(row.endDate).toLocaleDateString()}</td>
+                      <td className="px-4 py-3 text-[#2c2c2c]">{formatDateForDisplay(row.endDate)}</td>
                       <td className="px-4 py-3 text-[11px]">
                         <button onClick={() => openEditForm(row)} className="text-[#f0aa19] font-semibold">Edit</button>
                         <span className="mx-2 text-[#cfcfcf]">/</span>

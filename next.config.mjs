@@ -1,8 +1,15 @@
 /** @type {import('next').NextConfig} */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  process.env.API_URL ||
+  'https://golo-backend-new.onrender.com';
+
+const APP_BASE_PATH =
+  process.env.NEXT_PUBLIC_APP_BASE_PATH?.trim() || '';
 
 const nextConfig = {
+  basePath: APP_BASE_PATH || undefined,
   reactCompiler: true,
   distDir: '.next',
   images: {
@@ -16,14 +23,6 @@ const nextConfig = {
         hostname: '**',
       },
     ],
-  },
-  async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: `${API_URL}/:path*`,
-      },
-    ];
   },
 };
 

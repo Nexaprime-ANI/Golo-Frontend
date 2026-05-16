@@ -24,19 +24,53 @@ export default function MerchantOrdersPage() {
 
   const filteredOrders = useMemo(() => {
     if (activeTab === "all") return orders;
+<<<<<<< HEAD
     return orders.filter((order) => order.fulfillmentStatus === activeTab);
+=======
+    if (activeTab === "accepted") {
+      return orders.filter((order) => order.fulfillmentStatus === "accepted");
+    }
+    // Completed tab removed per request
+    if (activeTab === "pending") {
+      return orders.filter((order) => order.fulfillmentStatus === "pending");
+    }
+    if (activeTab === "rejected") {
+      return orders.filter((order) => order.fulfillmentStatus === "rejected");
+    }
+    return orders;
+>>>>>>> ab702514040ebb26ccf6345e37517ad5d0c39df4
   }, [activeTab, orders]);
 
   const formatOrderForUi = (order) => {
     const date = new Date(order.placedAt || Date.now());
-    const status = String(order.status || "pending").toLowerCase();
-    const isPending = status === "pending";
-    const isCompleted = status === "completed";
+    const raw = String(order.status || "pending").toLowerCase();
+    const isPending = raw === "pending";
+
+    const statusLabel = isPending ? "New" : (raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : "Order");
+
+    let action = "";
+    let actionTone = "muted";
+    if (raw === 'pending') {
+      action = 'Accept Order';
+      actionTone = 'primary';
+    } else if (raw === 'accepted') {
+      action = 'Accepted';
+      actionTone = 'muted';
+    } else if (raw === 'rejected') {
+      action = 'Rejected';
+      actionTone = 'muted';
+    } else if (raw === 'completed') {
+      action = 'Completed';
+      actionTone = 'muted';
+    } else {
+      action = raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : 'Order';
+      actionTone = 'muted';
+    }
 
     return {
       _id: order._id,
       id: `#${order.orderNumber || String(order._id || "").slice(-6)}`,
-      status: isPending ? "New Order" : "Order",
+      statusLabel,
       amount: `₹${order.amount || 0}`,
       items: `${order.itemsCount || 1} items`,
       time: `Purchased ${date.toLocaleTimeString()}`,
@@ -44,9 +78,9 @@ export default function MerchantOrdersPage() {
       customer: order.customerName || "Customer",
       customerType: "Customer",
       avatar: "/images/place2.avif",
-      fulfillmentStatus: isCompleted ? "completed" : isPending ? "pending" : status,
-      action: isPending ? "Accept Order" : "Accepted",
-      actionTone: isPending ? "primary" : "muted",
+      fulfillmentStatus: isPending ? "pending" : raw,
+      action,
+      actionTone,
     };
   };
 
@@ -82,7 +116,9 @@ export default function MerchantOrdersPage() {
   const handleOrderAction = async (orderId, status) => {
     try {
       await updateMerchantOrderStatus(orderId, status);
-      await loadOrders(activeTab);
+      // Reload the current tab; if we just rejected an order, ensure we reload 'rejected'
+      const reloadStatus = status === 'rejected' ? 'rejected' : activeTab;
+      await loadOrders(reloadStatus);
     } catch (err) {
       setLoadError(err?.status === 404 ? "Order update service is not available yet." : "Failed to update order status.");
     }
@@ -158,6 +194,12 @@ export default function MerchantOrdersPage() {
                   All Orders
                 </button>
                 <button
+                  onClick={() => setActiveTab("accepted")}
+                  className={`h-8 min-w-[88px] rounded-[8px] px-3 text-[11px] font-semibold ${activeTab === "accepted" ? "bg-[#f2faf4] text-[#157a4f]" : "text-[#6d6d6d]"}`}
+                >
+                  Accepted
+                </button>
+                <button
                   onClick={() => setActiveTab("completed")}
                   className={`h-8 min-w-[88px] rounded-[8px] px-3 text-[11px] font-semibold ${activeTab === "completed" ? "bg-[#f2faf4] text-[#157a4f]" : "text-[#6d6d6d]"}`}
                 >
@@ -168,6 +210,12 @@ export default function MerchantOrdersPage() {
                   className={`h-8 min-w-[72px] rounded-[8px] px-3 text-[11px] font-semibold ${activeTab === "pending" ? "bg-[#f2faf4] text-[#157a4f]" : "text-[#6d6d6d]"}`}
                 >
                   Pending
+                </button>
+                <button
+                  onClick={() => setActiveTab("rejected")}
+                  className={`h-8 min-w-[72px] rounded-[8px] px-3 text-[11px] font-semibold ${activeTab === "rejected" ? "bg-[#fff0f0] text-[#ef4d4d]" : "text-[#6d6d6d]"}`}
+                >
+                  Rejected
                 </button>
               </div>
 
@@ -181,7 +229,7 @@ export default function MerchantOrdersPage() {
                     <div>
                       <div className="flex items-center gap-2 text-[9px] uppercase tracking-[0.14em] text-[#7d7d7d]">
                         <span>ORDER {order.id}</span>
-                        <span className="rounded-full border border-[#cfe7d5] bg-[#eef8f1] px-2 py-0.5 text-[#2f8f55]">{order.status}</span>
+                        <span className="rounded-full border border-[#cfe7d5] bg-[#eef8f1] px-2 py-0.5 text-[#2f8f55]">{order.statusLabel}</span>
                       </div>
                       <div className="mt-3 flex items-center gap-5 text-[#1d1d1d]">
                         <div>

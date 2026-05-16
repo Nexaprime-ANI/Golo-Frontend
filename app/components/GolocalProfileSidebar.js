@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { User, Heart, Trophy, Bell, LogOut } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
 
 function itemClass(active) {
   return `w-full rounded-xl text-sm px-4 py-3 flex items-center gap-2 transition ${
@@ -14,12 +15,10 @@ function itemClass(active) {
 
 export default function GolocalProfileSidebar({ active = "profile" }) {
   const router = useRouter();
+  const { logout } = useAuth();
 
   const handleLogout = () => {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-    localStorage.removeItem("user");
-    router.push("/login");
+    logout().finally(() => router.push("/login"));
   };
 
   return (

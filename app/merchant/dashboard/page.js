@@ -6,7 +6,11 @@ import { useRouter } from "next/navigation";
 import { Download, Plus, ChevronRight, ShoppingBag, Box, Star, User } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import MerchantNavbar from "../MerchantNavbar";
+<<<<<<< HEAD
 import { getMerchantDashboardSummary } from "../../lib/api";
+=======
+import { getMerchantDashboardSummary, getMerchantProfile, getMerchantLoyaltyLeaderboard, getMerchantRealtimeAnalytics } from "../../lib/api";
+>>>>>>> ab702514040ebb26ccf6345e37517ad5d0c39df4
 
 const orders = [
   { id: "#2456", time: "Placed 12 hours ago", amount: "₹340", qty: "3 items" },
@@ -35,6 +39,13 @@ export default function MerchantDashboardPage() {
   const router = useRouter();
   const { user, loading, logout, getUserAccountType } = useAuth();
   const [summary, setSummary] = useState(null);
+<<<<<<< HEAD
+=======
+  const [realtimeAnalytics, setRealtimeAnalytics] = useState(null);
+  const [merchantProfile, setMerchantProfile] = useState(null);
+  const [loyaltyLeaderboard, setLoyaltyLeaderboard] = useState([]);
+  const [lastUpdated, setLastUpdated] = useState(new Date());
+>>>>>>> ab702514040ebb26ccf6345e37517ad5d0c39df4
 
   const handleMerchantLogout = async () => {
     await logout();
@@ -59,14 +70,31 @@ export default function MerchantDashboardPage() {
     const loadSummary = async () => {
       if (!user || (user?.accountType || getUserAccountType()) !== "merchant") return;
       try {
-        const res = await getMerchantDashboardSummary();
-        setSummary(res?.data || null);
+        const [summaryRes, realtimeRes] = await Promise.allSettled([
+          getMerchantDashboardSummary(),
+          getMerchantRealtimeAnalytics(),
+        ]);
+
+        if (summaryRes.status === "fulfilled") {
+          setSummary(summaryRes.value?.data || null);
+        }
+
+        if (realtimeRes.status === "fulfilled") {
+          setRealtimeAnalytics(realtimeRes.value?.data || null);
+        }
+
+        setLastUpdated(new Date());
       } catch (err) {
         console.error("Failed to load dashboard summary:", err);
       }
     };
 
     loadSummary();
+
+    // Poll for real-time updates every 10 seconds
+    const interval = setInterval(loadSummary, 10000);
+
+    return () => clearInterval(interval);
   }, [user, getUserAccountType]);
 
   if (loading || !user) {
@@ -76,6 +104,33 @@ export default function MerchantDashboardPage() {
   const accountType = user?.accountType || getUserAccountType();
   if (accountType !== "merchant") return null;
 
+<<<<<<< HEAD
+=======
+  const storeAvatar =
+    merchantProfile?.profilePhoto ||
+    merchantProfile?.shopPhoto ||
+    user?.profilePhoto ||
+    user?.shopPhoto ||
+    "";
+
+  const redemptionTrend = realtimeAnalytics?.redemptions || {};
+  const redemptionLabels = redemptionTrend.labels || ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const redemptionValues = (redemptionTrend.values && redemptionTrend.values.length > 0)
+    ? redemptionTrend.values
+    : [0, 0, 0, 0, 0, 0, 0];
+  const maxRedemptionValue = Math.max(1, ...redemptionValues);
+  const chartWidth = 702;
+  const chartHeight = 240;
+  const chartPadding = 18;
+  const redemptionPoints = redemptionValues
+    .map((value, index) => {
+      const x = chartPadding + ((chartWidth - chartPadding * 2) / Math.max(redemptionValues.length - 1, 1)) * index;
+      const y = chartHeight - chartPadding - ((chartHeight - chartPadding * 2) * value) / maxRedemptionValue;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+
+>>>>>>> ab702514040ebb26ccf6345e37517ad5d0c39df4
   return (
     <div className="min-h-screen bg-[#ececec] text-[#1b1b1b]" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
       <MerchantNavbar activeKey="dashboard" />
@@ -89,8 +144,8 @@ export default function MerchantDashboardPage() {
                   <Image src="/images/deal2.avif" alt="Moon Cafe" width={56} height={56} className="h-full w-full object-cover" />
                 </div>
                 <div>
-                  <p className="text-[9px] text-[#737373]">Open Now • Last updated 2 mins ago</p>
-                  <h1 className="text-[44px] leading-none font-bold text-[#1f1f1f] mt-1">Moon Cafe</h1>
+                  <p className="text-[9px] text-[#737373]">Open Now • Last updated {Math.floor((new Date() - lastUpdated) / 60000)} mins ago</p>
+                  <h1 className="text-[44px] leading-none font-bold text-[#1f1f1f] mt-1">{merchantProfile?.shopName || merchantProfile?.storeName || "My Store"}</h1>
                   <div className="mt-2 flex items-center gap-6 text-[14px] text-[#424242]">
                     <span className="inline-flex items-center gap-1"><ShoppingBag size={14} className="text-[#157a4f]" /> <span className="font-bold text-[30px] leading-none">{summary?.stats?.totalOrders || 0}</span> Total Orders</span>
                     <span className="inline-flex items-center gap-1"><Star size={14} className="text-[#e9aa1d]" /> <span className="font-bold text-[30px] leading-none">{summary?.stats?.averageRating || 0}</span> Store Rating</span>
@@ -113,8 +168,15 @@ export default function MerchantDashboardPage() {
             <div className="rounded-[12px] border border-[#d8d8d8] bg-white p-5">
               <div className="flex items-start justify-between">
                 <div>
-                  <h2 className="text-[28px] font-bold leading-none">Shop Visits ↗</h2>
-                  <p className="text-[12px] text-[#666] mt-1">{summary?.stats?.weeklyViews || 0} visits this week</p>
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-[28px] font-bold leading-none">Shop Redemptions ↗</h2>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-[#e9f7ee] px-2.5 py-1 text-[10px] font-semibold text-[#1f8f4f]">
+                      <span className="h-2 w-2 rounded-full bg-[#1f8f4f]" /> Live
+                    </span>
+                  </div>
+                  <p className="text-[12px] text-[#666] mt-1">
+                    {(redemptionTrend.total ?? 0)} redemptions this week • updated every 10s
+                  </p>
                 </div>
                 <div className="inline-flex rounded-[7px] border border-[#dddddd] overflow-hidden text-[10px]">
                   <button className="h-7 px-3 bg-[#f8f8f8] font-semibold">Weekly</button>
@@ -123,19 +185,35 @@ export default function MerchantDashboardPage() {
               </div>
 
               <div className="mt-4 rounded-[10px] bg-[#fbfbfb] border border-[#ececec] p-3">
-                <svg viewBox="0 0 760 360" className="w-full h-[320px]">
-                  {[330, 275, 220, 165, 110].map((y) => (
+                <div className="mb-3 flex items-center justify-between text-[11px] text-[#6b6b6b]">
+                  <p>Live merchant-side redemption activity</p>
+                  <p>Today: <span className="font-semibold text-[#1f8f4f]">{redemptionTrend.today ?? redemptionValues[redemptionValues.length - 1] ?? 0}</span></p>
+                </div>
+                <svg viewBox="0 0 760 320" className="w-full h-[300px]">
+                  {[280, 220, 160, 100, 40].map((y) => (
                     <g key={y}>
-                      <line x1="38" y1={360 - y} x2="740" y2={360 - y} stroke="#d8d8d8" strokeDasharray="4 4" />
-                      <text x="2" y={364 - y} fontSize="10" fill="#888">{y}</text>
+                      <line x1="38" y1={320 - y} x2="740" y2={320 - y} stroke="#d8d8d8" strokeDasharray="4 4" />
+                      <text x="2" y={324 - y} fontSize="10" fill="#888">{Math.round((maxRedemptionValue * y) / 280)}</text>
                     </g>
                   ))}
 
-                  <polyline fill="none" stroke="#219653" strokeWidth="2.2" points="38,130 150,20 262,95 374,320 486,110 598,92 710,136" />
+                  <polyline
+                    fill="none"
+                    stroke="#219653"
+                    strokeWidth="2.5"
+                    points={redemptionPoints}
+                  />
 
-                  {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d, idx) => (
-                    <text key={d} x={38 + idx * 112} y="352" fontSize="10" fill="#8a8a8a">{d}</text>
-                  ))}
+                  {redemptionValues.map((value, index) => {
+                    const x = chartPadding + ((chartWidth - chartPadding * 2) / Math.max(redemptionValues.length - 1, 1)) * index;
+                    const y = chartHeight - chartPadding - ((chartHeight - chartPadding * 2) * value) / maxRedemptionValue;
+                    return (
+                      <g key={`${redemptionLabels[index] || index}-${index}`}>
+                        <circle cx={x} cy={y} r="3.5" fill="#219653" />
+                        <text x={x} y="314" textAnchor="middle" fontSize="10" fill="#8a8a8a">{redemptionLabels[index] || ""}</text>
+                      </g>
+                    );
+                  })}
                 </svg>
               </div>
             </div>
@@ -168,9 +246,15 @@ export default function MerchantDashboardPage() {
                 <button className="text-[12px] font-semibold text-[#1e8b4f]">View All Orders</button>
               </div>
 
+<<<<<<< HEAD
               <div>
                 {(summary?.recentOrders || orders).map((order) => (
                   <div key={order._id || order.id} className="px-4 py-3 border-b border-[#f0f0f0] last:border-b-0 flex items-center gap-3">
+=======
+              <div className="max-h-[320px] overflow-y-auto">
+                {(summary?.recentOrders || []).map((order) => (
+                  <div key={order._id || order.orderNumber} className="px-4 py-3 border-b border-[#f0f0f0] last:border-b-0 flex items-center gap-3">
+>>>>>>> ab702514040ebb26ccf6345e37517ad5d0c39df4
                     <div className="h-8 w-8 rounded-full bg-[#ebf8ef] border border-[#cce9d4] text-[#1f8f4f] flex items-center justify-center">
                       <Box size={14} />
                     </div>
@@ -198,9 +282,15 @@ export default function MerchantDashboardPage() {
                 <button className="text-[#888]">⋮</button>
               </div>
 
+<<<<<<< HEAD
               <div className="mt-3 space-y-3">
                 {(summary?.latestReviews || latestReviews).map((review) => (
                   <article key={review._id || review.name} className="rounded-[10px] border border-[#ececec] bg-[#fbfbfb] p-3">
+=======
+              <div className="mt-3 max-h-[360px] overflow-y-auto space-y-3">
+                {(summary?.latestReviews || []).map((review) => (
+                  <article key={review._id || review.userName} className="rounded-[10px] border border-[#ececec] bg-[#fbfbfb] p-3">
+>>>>>>> ab702514040ebb26ccf6345e37517ad5d0c39df4
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-2">
                         <div className="h-7 w-7 rounded-full overflow-hidden border border-[#ddd]">
@@ -217,8 +307,6 @@ export default function MerchantDashboardPage() {
                   </article>
                 ))}
               </div>
-
-              <button className="mt-4 h-9 w-full rounded-[8px] border border-[#d8d8d8] bg-white text-[12px] font-semibold text-[#343434]">Read All 48 Reviews</button>
             </div>
           </section>
         </div>

@@ -14,6 +14,7 @@ const navItems = [
   { key: "redeem", label: "Redeem QR", href: "/merchant/redeem" },
   { key: "banners", label: "Banners", href: "/merchant/banners" },
   { key: "analytics", label: "Analytics", href: "/merchant/analytics" },
+  { key: "settings", label: "Settings", href: "/merchant/settings" },
 ];
 
 export default function MerchantNavbar({ activeKey = "dashboard" }) {

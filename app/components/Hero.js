@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
-import { getActiveHomepageBanners } from "../lib/api";
+import { API_ORIGIN_URL, getActiveHomepageBanners } from "../lib/api";
 
 const MAX_SLIDES = 5;
 
@@ -33,7 +33,7 @@ function normalizeImageUrl(rawUrl) {
   if (isRemoteUrl(url) || url.startsWith("/")) return url;
 
   // If backend stored a relative path, prefer prefixing with configured API URL.
-  const apiBase = process.env.NEXT_PUBLIC_API_URL;
+  const apiBase = API_ORIGIN_URL;
   if (apiBase) {
     const base = apiBase.replace(/\/$/, "");
     const path = url.replace(/\\/g, "/").replace(/^\//, "");

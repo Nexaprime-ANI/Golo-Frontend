@@ -7,12 +7,18 @@ import { Bell, User } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import MerchantNavbar from "../MerchantNavbar";
 import {
+<<<<<<< HEAD
   getAnalyticsDeviceBreakdown,
   getAnalyticsEvents,
   getAnalyticsTopPages,
   getAnalyticsTopRegions,
   getMerchantDashboardSummary,
   getMerchantOrderStats,
+=======
+  getMerchantRealtimeAnalytics,
+  getMerchantLikedProducts,
+  getMerchantProfile,
+>>>>>>> ab702514040ebb26ccf6345e37517ad5d0c39df4
 } from "../../lib/api";
 
 const likedProducts = [
@@ -37,6 +43,12 @@ export default function MerchantAnalyticsPage() {
   const [eventStats, setEventStats] = useState({ registrations: 0, listingsPosted: 0, transactions: 0 });
   const [monthlyTrend, setMonthlyTrend] = useState([120, 220, 260, 280, 310, 390, 420]);
   const [loadError, setLoadError] = useState("");
+<<<<<<< HEAD
+=======
+  const [likedOffers, setLikedOffers] = useState([]);
+  const [likedProducts, setLikedProducts] = useState([]);
+  const [merchantProfile, setMerchantProfile] = useState(null);
+>>>>>>> ab702514040ebb26ccf6345e37517ad5d0c39df4
   const [ageRows, setAgeRows] = useState([
     { label: "18-24", male: 40, female: 60, total: "3.3%" },
     { label: "25-34", male: 54, female: 46, total: "12.7%" },
@@ -150,6 +162,7 @@ export default function MerchantAnalyticsPage() {
     loadAnalytics();
   }, [user]);
 
+<<<<<<< HEAD
   const likedProductsData = useMemo(() => {
     if (!topPages.length) return likedProducts;
     return topPages.map((p, index) => ({
@@ -159,12 +172,90 @@ export default function MerchantAnalyticsPage() {
       image: likedProducts[index % likedProducts.length].image,
     }));
   }, [topPages]);
+=======
+  useEffect(() => {
+    const loadMerchantProfile = async () => {
+      if (!user || user.accountType !== "merchant") return;
+      try {
+        const response = await getMerchantProfile();
+        setMerchantProfile(response?.data || null);
+      } catch {
+        setMerchantProfile(null);
+      }
+    };
+
+    loadMerchantProfile();
+  }, [user]);
+
+  // Fetch liked products for merchant (keep fallback if none)
+  useEffect(() => {
+    let intervalId;
+
+    const loadLikedProducts = async () => {
+      if (!user || user.accountType !== "merchant") return;
+      try {
+        const response = await getMerchantLikedProducts?.(10);
+        const data = response?.data || {};
+
+        const mappedOffers = Array.isArray(data.offers)
+          ? data.offers.map((item) => ({
+              name: item.name || 'Untitled Offer',
+              type: item.type || 'General',
+              likes: Number(item.likes || 0),
+              image: item.image || '/images/deal2.avif',
+              customers: item.customers || 'No customers yet',
+              customerCount: Number(item.customerCount || 0),
+              offerId: item.offerId || '',
+            }))
+          : [];
+
+        const mappedProducts = Array.isArray(data.products)
+          ? data.products.map((item) => ({
+              name: item.name || 'Untitled Product',
+              type: item.type || 'General',
+              likes: Number(item.likes || 0),
+              image: item.image || '/images/deal2.avif',
+              customers: item.customers || 'No customers yet',
+              customerCount: Number(item.customerCount || 0),
+              productId: item.productId || '',
+              offerName: item.offerName || '',
+            }))
+          : [];
+
+        setLikedOffers(mappedOffers);
+        setLikedProducts(mappedProducts);
+      } catch (err) {
+        setLikedOffers([]);
+        setLikedProducts([]);
+        setLoadError((prev) => prev || "Failed to load liked offers/products data.");
+      }
+    };
+    loadLikedProducts();
+    intervalId = setInterval(loadLikedProducts, 5000);
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [user]);
+>>>>>>> ab702514040ebb26ccf6345e37517ad5d0c39df4
 
   if (loading || !user) {
     return <div className="min-h-screen bg-[#efefef]" />;
   }
 
   if (user.accountType !== "merchant") return null;
+
+  const analyticsStoreName =
+    merchantProfile?.storeName ||
+    merchantProfile?.name ||
+    user?.storeName ||
+    user?.name ||
+    "Your Store";
+  const analyticsStoreAvatar =
+    merchantProfile?.profilePhoto ||
+    merchantProfile?.shopPhoto ||
+    user?.profilePhoto ||
+    "/images/place2.avif";
 
   return (
     <div className="min-h-screen bg-[#ececec] text-[#1b1b1b]" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
@@ -188,12 +279,12 @@ export default function MerchantAnalyticsPage() {
                 </div>
 
                 <div className="text-right">
-                  <div className="inline-flex items-center gap-2">
-                    <div className="h-8 w-8 rounded-full overflow-hidden border border-[#ddd]">
-                      <Image src="/images/place2.avif" alt="Fashion Fusion" width={32} height={32} className="h-full w-full object-cover" />
+                    <div className="inline-flex items-center gap-2">
+                      <div className="h-8 w-8 rounded-full overflow-hidden border border-[#ddd]">
+                        <Image src={analyticsStoreAvatar} alt={analyticsStoreName} width={32} height={32} className="h-full w-full object-cover" />
+                      </div>
+                      <p className="text-[24px] font-semibold">{analyticsStoreName}</p>
                     </div>
-                    <p className="text-[24px] font-semibold">Fashion Fusion</p>
-                  </div>
                   <p className="mt-2 text-[11px] text-[#2f8f55] inline-flex rounded-full bg-[#edf8f0] px-2 py-0.5">↗ +1,208 more than usual</p>
                 </div>
               </div>
@@ -252,6 +343,7 @@ export default function MerchantAnalyticsPage() {
                 <button className="text-[#888]">⋮</button>
               </div>
 
+<<<<<<< HEAD
               <div className="mt-3 space-y-2">
                 {likedProductsData.map((product) => (
                   <div key={product.name} className="flex items-center gap-3 rounded-[8px] border border-[#efefef] bg-[#fafafa] px-3 py-2">
@@ -273,6 +365,82 @@ export default function MerchantAnalyticsPage() {
               <button className="mt-4 h-9 w-full rounded-full border border-[#7db897] bg-white text-[12px] font-semibold text-[#2f8f55]">
                 View All Popular Products ›
               </button>
+=======
+                {likedOffers.length === 0 ? (
+                  <p className="mt-4 text-[12px] text-[#999] italic">No liked offers yet. When customers like your offers, they will appear here.</p>
+                ) : (
+                  <div className="mt-3 max-h-[340px] overflow-y-auto space-y-2">
+                    {likedOffers.map((offer, index) => (
+                      <div key={`${offer.offerId || offer.name}_${index}`} className="rounded-[8px] border border-[#efefef] bg-[#fafafa] px-3 py-2">
+                        <div className="flex items-center gap-3">
+                          <div className="h-8 w-8 rounded-full overflow-hidden border border-[#ddd] shrink-0">
+                            <Image src={offer.image} alt={offer.name} width={32} height={32} className="h-full w-full object-cover" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[12px] font-semibold">{offer.name}</p>
+                            <p className="text-[10px] text-[#8a8a8a]">{offer.type}</p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-[12px] font-semibold">{offer.likes.toLocaleString()}</p>
+                            <p className="text-[9px] text-[#8a8a8a]">LIKES</p>
+                          </div>
+                        </div>
+                        {offer.customerCount > 0 && (
+                          <div className="mt-2 pt-2 border-t border-[#e5e5e5]">
+                            <p className="text-[10px] text-[#666]">
+                              <span className="font-semibold">Customers:</span> {offer.customers}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {/* Removed 'View All Liked Offers' per request; content scrolls */}
+              </section>
+
+              <section className="rounded-[12px] border border-[#d9d9d9] bg-white p-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h2 className="text-[26px] font-semibold leading-none">Products liked</h2>
+                    <p className="text-[11px] text-[#6f6f6f] mt-1">Products inside the offers customers liked most</p>
+                  </div>
+                  <button className="text-[#888]">⋮</button>
+                </div>
+
+                {likedProducts.length === 0 ? (
+                  <p className="mt-4 text-[12px] text-[#999] italic">No liked products yet. When customers like an offer with products, they will appear here.</p>
+                ) : (
+                  <div className="mt-3 max-h-[340px] overflow-y-auto space-y-2">
+                    {likedProducts.map((product, index) => (
+                      <div key={`${product.productId || product.name}_${index}`} className="rounded-[8px] border border-[#efefef] bg-[#fafafa] px-3 py-2">
+                        <div className="flex items-center gap-3">
+                          <div className="h-8 w-8 rounded-full overflow-hidden border border-[#ddd] shrink-0">
+                            <Image src={product.image} alt={product.name} width={32} height={32} className="h-full w-full object-cover" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[12px] font-semibold">{product.name}</p>
+                            <p className="text-[10px] text-[#8a8a8a]">{product.type}{product.offerName ? ` • ${product.offerName}` : ''}</p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-[12px] font-semibold">{product.likes.toLocaleString()}</p>
+                            <p className="text-[9px] text-[#8a8a8a]">LIKES</p>
+                          </div>
+                        </div>
+                        {product.customerCount > 0 && (
+                          <div className="mt-2 pt-2 border-t border-[#e5e5e5]">
+                            <p className="text-[10px] text-[#666]">
+                              <span className="font-semibold">Customers:</span> {product.customers}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {/* Removed 'View All Liked Products' per request; content scrolls */}
+              </section>
+>>>>>>> ab702514040ebb26ccf6345e37517ad5d0c39df4
             </aside>
           </section>
 

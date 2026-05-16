@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { loginUser, registerUser, logoutUser, getProfile, updateMerchantStoreLocation } from "../lib/api";
+import { API_BASE_URL, apiClient, loginUser, registerUser, logoutUser, getProfile, updateMerchantStoreLocation } from "../lib/api";
 
 const AuthContext = createContext(null);
 
@@ -9,25 +9,54 @@ export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    // Load user from localStorage on mount
+    // Load cached user, then validate the cookie-based session with the backend
     useEffect(() => {
-        const token = localStorage.getItem("accessToken");
         const savedUser = localStorage.getItem("user");
 
-        if (token && savedUser) {
+        if (savedUser) {
             try {
                 setUser(JSON.parse(savedUser));
             } catch {
                 localStorage.removeItem("user");
             }
         }
-        setLoading(false);
+
+        let mounted = true;
+
+        (async () => {
+            try {
+                const response = await getProfile();
+                if (!mounted) return;
+                const profileUser = response?.data;
+                if (profileUser) {
+                    localStorage.setItem("user", JSON.stringify(profileUser));
+                    setUser(profileUser);
+                }
+            } catch {
+                if (!mounted) return;
+                setUser((current) => current || null);
+            } finally {
+                if (mounted) setLoading(false);
+            }
+        })();
+
+        const handleAuthCleared = () => {
+            localStorage.removeItem("user");
+            setUser(null);
+        };
+
+        window.addEventListener("golo-auth-cleared", handleAuthCleared);
+
+        return () => {
+            mounted = false;
+            window.removeEventListener("golo-auth-cleared", handleAuthCleared);
+        };
     }, []);
 
     const login = useCallback(async (email, password, accountType = "user") => {
         const response = await loginUser(email, password, accountType);
 
-        const { accessToken, refreshToken, user: userData } = response.data;
+        const { user: userData } = response.data;
 
         // Ensure accountType is preserved from response or fallback to login parameter
         const userDataWithType = {
@@ -35,16 +64,16 @@ export function AuthProvider({ children }) {
             accountType: userData?.accountType || accountType || 'user'
         };
 
-        localStorage.setItem("accessToken", accessToken);
-        localStorage.setItem("refreshToken", refreshToken);
         localStorage.setItem("user", JSON.stringify(userDataWithType));
 
         if (typeof window !== "undefined" && userDataWithType?.accountType === "merchant") {
             try {
                 // Ask server to sync any pending merchant location saved during registration
-                await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/users/pending-location/sync`, {
+                const backendApiBase = API_BASE_URL;
+                await fetch(`${backendApiBase}/users/pending-location/sync`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` },
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
                 });
             } catch (syncError) {
                 console.warn("Pending merchant location sync failed:", syncError);
@@ -92,16 +121,11 @@ export function AuthProvider({ children }) {
 
     const logout = useCallback(async () => {
         try {
-            const refreshToken = localStorage.getItem("refreshToken");
-            if (refreshToken) {
-                await logoutUser(refreshToken);
-            }
+            await logoutUser();
         } catch {
             // Logout from server failed, but still clear local state
         }
 
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("refreshToken");
         localStorage.removeItem("user");
         setUser(null);
     }, []);

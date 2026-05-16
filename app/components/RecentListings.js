@@ -4,9 +4,10 @@ import Image from "next/image";
 import { useEffect, useState, useMemo, Suspense } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
-import { getAllAds, searchAds } from "../lib/api";
+import { getAllAds, getNearbyAds, searchAds } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import AuthRequiredModal from "./AuthRequiredModal";
+import { normalizeAppPath } from "../lib/path";
 
 const SORT_OPTIONS = [
     { label: "Newest First", value: "createdAt_desc" },
@@ -40,6 +41,12 @@ function getSafeImageSrc(value) {
     if (src.startsWith("http://") || src.startsWith("https://")) return src;
     return "/images/placeholder.webp";
 }
+
+const chatButtonClass =
+    "bg-[#157a4f] text-white font-semibold shadow-[0_10px_22px_rgba(21,122,79,0.26)] hover:bg-[#126542] transition-colors";
+
+const callButtonClass =
+    "bg-[#efb02e] text-[#1f2329] font-semibold shadow-[0_10px_22px_rgba(239,176,46,0.28)] hover:bg-[#d79d25] transition-colors";
 
 function assignBentoLayout(adsList) {
     return adsList.map((ad) => {
@@ -76,7 +83,7 @@ function assignBentoLayout(adsList) {
 
 function RecentListingsContent() {
     const searchParams = useSearchParams();
-    const pathname = usePathname();
+    const pathname = normalizeAppPath(usePathname());
     const [ads, setAds] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -108,8 +115,9 @@ function RecentListingsContent() {
                 const [sortBy, sortOrder] = sortValue.split("_");
 
                 let response;
-                // Always use getNearbyAds if userLocation or location is set (Golocal user surface)
-                if ((userLocation && userLocation.lat && userLocation.lng) || location) {
+                // Choja should show the full public feed by default.
+                // Use nearby ads only when the user explicitly selects Nearby.
+                if (sortValue === "distance_asc" && userLocation?.lat && userLocation?.lng) {
                     response = await getNearbyAds({
                         lat: userLocation?.lat,
                         lng: userLocation?.lng,
@@ -117,11 +125,23 @@ function RecentListingsContent() {
                         page: 1,
                         limit: 50
                     });
+                } else if (q || location || category) {
+                    response = await searchAds({
+                        q,
+                        category,
+                        location,
+                        sortBy,
+                        sortOrder,
+                        page: 1,
+                        limit: 50,
+                    });
                 } else {
-                    // Fallback: show nothing if no location (prevents Choja ads leak)
-                    setAds([]);
-                    setLoading(false);
-                    return;
+                    response = await getAllAds({
+                        page: 1,
+                        limit: 50,
+                        sortBy,
+                        sortOrder,
+                    });
                 }
 
                 if (response.success) {
@@ -300,7 +320,7 @@ function MultiImageAd({ ad, className, isAuthenticated, onRequireAuth }) {
                             }
                             router.push(`/chats?adId=${ad.adId || ad._id}&sellerId=${ad.userId || ''}`);
                         }}
-                        className="px-4 py-2 text-sm rounded-xl theme-button-accent"
+                        className={`px-4 py-2 text-sm rounded-xl ${chatButtonClass}`}
                     >
                         Chat
                     </button>
@@ -313,7 +333,7 @@ function MultiImageAd({ ad, className, isAuthenticated, onRequireAuth }) {
                             }
                             router.push(`/chats?adId=${ad.adId || ad._id}&sellerId=${ad.userId || ''}&autoCall=1`);
                         }}
-                        className="px-4 py-2 text-sm rounded-xl theme-button-primary"
+                        className={`px-4 py-2 text-sm rounded-xl ${callButtonClass}`}
                     >
                         Call
                     </button>
@@ -370,7 +390,7 @@ function SingleImageAd({ ad, className, isAuthenticated, onRequireAuth }) {
                             }
                             router.push(`/chats?adId=${ad.adId || ad._id}&sellerId=${ad.userId || ''}`);
                         }}
-                        className="flex-1 py-2 text-xs rounded-lg theme-button-accent"
+                        className={`flex-1 py-2 text-xs rounded-lg ${chatButtonClass}`}
                     >
                         Chat
                     </button>
@@ -383,7 +403,7 @@ function SingleImageAd({ ad, className, isAuthenticated, onRequireAuth }) {
                             }
                             router.push(`/chats?adId=${ad.adId || ad._id}&sellerId=${ad.userId || ''}&autoCall=1`);
                         }}
-                        className="flex-1 py-2 text-xs rounded-lg theme-button-primary"
+                        className={`flex-1 py-2 text-xs rounded-lg ${callButtonClass}`}
                     >
                         Call
                     </button>
@@ -420,7 +440,7 @@ function TextAd({ ad, className, isAuthenticated, onRequireAuth }) {
                         }
                         router.push(`/chats?adId=${ad.adId || ad._id}&sellerId=${ad.userId || ''}`);
                     }}
-                    className="flex-1 py-2 text-xs rounded-lg theme-button-accent"
+                    className={`flex-1 py-2 text-xs rounded-lg ${chatButtonClass}`}
                 >
                     Chat
                 </button>
@@ -433,7 +453,7 @@ function TextAd({ ad, className, isAuthenticated, onRequireAuth }) {
                         }
                         router.push(`/chats?adId=${ad.adId || ad._id}&sellerId=${ad.userId || ''}&autoCall=1`);
                     }}
-                    className="flex-1 py-2 text-xs rounded-lg theme-button-primary"
+                    className={`flex-1 py-2 text-xs rounded-lg ${callButtonClass}`}
                 >
                     Call
                 </button>
