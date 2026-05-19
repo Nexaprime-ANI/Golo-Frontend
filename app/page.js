@@ -1,8 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useAuth } from "./context/AuthContext";
 import Navbar from "./components/Navbar";
@@ -344,14 +344,17 @@ function SectionCarousel({ title, items, onItemClick }) {
   );
 }
 
-export default function Home() {
+function HomeContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [shops, setShops] = useState(SHOP_FALLBACKS);
   const [dealsUnder2Km, setDealsUnder2Km] = useState(DEAL_FALLBACKS.slice(0, 4));
   const [recommendedDeals, setRecommendedDeals] = useState(DEAL_FALLBACKS.slice(4, 8));
   const [coupleDeals, setCoupleDeals] = useState(DEAL_FALLBACKS.slice(6, 10));
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, loading, getUserAccountType } = useAuth();
+  const selectedLocation = searchParams.get("location") || "";
+  const selectedQuery = searchParams.get("q") || "";
 
   useEffect(() => {
     if (!loading && user) {
@@ -364,13 +367,29 @@ export default function Home() {
 
   useEffect(() => {
     let cancelled = false;
+    const hasFilteredSearch = Boolean(selectedLocation.trim() || selectedQuery.trim());
 
     async function loadHomepageRows() {
       try {
-        const response = await getNearbyOffers({ limit: 24, activeNowOnly: true });
+        const response = await getNearbyOffers({
+          limit: 24,
+          activeNowOnly: true,
+          location: selectedLocation || undefined,
+          q: selectedQuery || undefined,
+        });
         const rows = normalizeOffers(response);
 
-        if (!rows.length || cancelled) return;
+        if (cancelled) return;
+
+        if (!rows.length) {
+          if (hasFilteredSearch) {
+            setShops([]);
+            setDealsUnder2Km([]);
+            setRecommendedDeals([]);
+            setCoupleDeals([]);
+          }
+          return;
+        }
 
         const shopRows = buildShopCards(rows).slice(0, 8);
         const dealRows = buildDealCards(rows);
@@ -394,7 +413,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [selectedLocation, selectedQuery]);
 
   const handleShopClick = (item) => {
     if (!item?.merchantId || String(item.merchantId).startsWith("shop-")) return;
@@ -462,5 +481,13 @@ export default function Home() {
         <Footer />
       </main>
     </>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<main className="min-h-screen bg-[#f4f4f4]" />}>
+      <HomeContent />
+    </Suspense>
   );
 }

@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, X } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
 import { createMerchantProduct, getMerchantProfile } from "../../../lib/api";
 import MerchantNavbar from "../../MerchantNavbar";
@@ -69,6 +69,10 @@ export default function AddProductPage() {
         reader.readAsDataURL(file);
       });
     }
+  };
+
+  const handleRemoveProductImage = (indexToRemove) => {
+    setProductImages((prevImages) => prevImages.filter((_, index) => index !== indexToRemove));
   };
 
   const triggerFileInput = () => {
@@ -290,13 +294,21 @@ export default function AddProductPage() {
                 {productImages.length > 0 && (
                   <div className="mb-4 grid grid-cols-3 gap-3">
                     {productImages.map((img, idx) => (
-                      <div key={idx} className="relative rounded-[8px] overflow-hidden border border-[#e2e2e2] h-20">
+                      <div key={idx} className="relative rounded-[8px] overflow-hidden border border-[#e2e2e2] h-20 group">
                         <Image
                           src={img}
                           alt={`Product ${idx + 1}`}
                           fill
                           className="w-full h-full object-cover"
                         />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveProductImage(idx)}
+                          className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-red-600 text-white shadow-md transition hover:bg-red-700"
+                          aria-label={`Remove product image ${idx + 1}`}
+                        >
+                          <X size={12} strokeWidth={3} />
+                        </button>
                       </div>
                     ))}
                   </div>

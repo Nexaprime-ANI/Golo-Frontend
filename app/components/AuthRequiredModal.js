@@ -69,7 +69,8 @@ export default function AuthRequiredModal({ isOpen, onClose, title = "Login Requ
     setSubmitting(true);
     try {
       const response = await login(loginEmail.trim(), loginPassword, accountType);
-      const loggedInUser = response?.data?.user;
+      const authData = response?.data?.data || response?.data;
+      const loggedInUser = authData?.user;
       handleClose();
       if (accountType === "merchant" || loggedInUser?.accountType === "merchant") {
         router.push("/merchant/dashboard");

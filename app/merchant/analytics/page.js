@@ -3,34 +3,17 @@
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, User } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import MerchantNavbar from "../MerchantNavbar";
 import {
-<<<<<<< HEAD
-  getAnalyticsDeviceBreakdown,
-  getAnalyticsEvents,
-  getAnalyticsTopPages,
-  getAnalyticsTopRegions,
-  getMerchantDashboardSummary,
-  getMerchantOrderStats,
-=======
   getMerchantRealtimeAnalytics,
   getMerchantLikedProducts,
   getMerchantProfile,
->>>>>>> ab702514040ebb26ccf6345e37517ad5d0c39df4
 } from "../../lib/api";
-
-const likedProducts = [
-  { name: "T-Shirt", type: "Fitness", likes: "13k", image: "/images/deal2.avif" },
-  { name: "Shirt", type: "Tech", likes: "9.4k", image: "/images/banner3.avif" },
-  { name: "Pants", type: "Lifestyle", likes: "7.2k", image: "/images/place2.avif" },
-  { name: "Saree", type: "Office", likes: "5.1k", image: "/images/deal2.avif" },
-];
 
 export default function MerchantAnalyticsPage() {
   const router = useRouter();
-  const { user, loading, logout } = useAuth();
+  const { user, loading } = useAuth();
   const [deviceData, setDeviceData] = useState({ Mobile: 62.5, Desktop: 25, Tablet: 12.5 });
   const [regions, setRegions] = useState([
     { region: "Karveer", percent: 95 },
@@ -39,16 +22,14 @@ export default function MerchantAnalyticsPage() {
     { region: "Ichalkaranji", percent: 78 },
     { region: "Radhanagari", percent: 45 },
   ]);
-  const [topPages, setTopPages] = useState([]);
-  const [eventStats, setEventStats] = useState({ registrations: 0, listingsPosted: 0, transactions: 0 });
-  const [monthlyTrend, setMonthlyTrend] = useState([120, 220, 260, 280, 310, 390, 420]);
+  const [topProducts, setTopProducts] = useState([]);
+  const [eventStats, setEventStats] = useState({ totalActive: 0, newSignups: 0, retention: 0 });
+  const [trendLabels, setTrendLabels] = useState(["1 Jan", "5 Jan", "10 Jan", "15 Jan", "20 Jan", "25 Jan", "31 Jan"]);
+  const [monthlyTrend, setMonthlyTrend] = useState([0, 0, 0, 0, 0, 0, 0]);
   const [loadError, setLoadError] = useState("");
-<<<<<<< HEAD
-=======
   const [likedOffers, setLikedOffers] = useState([]);
   const [likedProducts, setLikedProducts] = useState([]);
   const [merchantProfile, setMerchantProfile] = useState(null);
->>>>>>> ab702514040ebb26ccf6345e37517ad5d0c39df4
   const [ageRows, setAgeRows] = useState([
     { label: "18-24", male: 40, female: 60, total: "3.3%" },
     { label: "25-34", male: 54, female: 46, total: "12.7%" },
@@ -56,11 +37,6 @@ export default function MerchantAnalyticsPage() {
     { label: "45-64", male: 59, female: 41, total: "25.3%" },
     { label: "65+", male: 45, female: 55, total: "33.5%" },
   ]);
-
-  const handleMerchantLogout = async () => {
-    await logout();
-    router.push("/login");
-  };
 
   useEffect(() => {
     if (!loading && !user) {
@@ -74,105 +50,62 @@ export default function MerchantAnalyticsPage() {
   }, [loading, user, router]);
 
   useEffect(() => {
+    let intervalId;
+
     const loadAnalytics = async () => {
       if (!user || user.accountType !== "merchant") return;
       try {
         setLoadError("");
 
-        const [
-          deviceResult,
-          regionResult,
-          pagesResult,
-          eventsResult,
-          dashboardResult,
-          orderStatsResult,
-        ] = await Promise.allSettled([
-          getAnalyticsDeviceBreakdown(),
-          getAnalyticsTopRegions(),
-          getAnalyticsTopPages(),
-          getAnalyticsEvents(),
-          getMerchantDashboardSummary(),
-          getMerchantOrderStats(),
-        ]);
+        const realtime = await getMerchantRealtimeAnalytics();
+        const payload = realtime?.data || {};
 
-        const deviceRes = deviceResult.status === "fulfilled" ? deviceResult.value : null;
-        const regionRes = regionResult.status === "fulfilled" ? regionResult.value : null;
-        const pagesRes = pagesResult.status === "fulfilled" ? pagesResult.value : null;
-        const eventsRes = eventsResult.status === "fulfilled" ? eventsResult.value : null;
-        const dashboardRes = dashboardResult.status === "fulfilled" ? dashboardResult.value : null;
-        const orderStatsRes = orderStatsResult.status === "fulfilled" ? orderStatsResult.value : null;
-
-        if (deviceRes?.data) {
+        if (payload.device) {
           setDeviceData({
-            Mobile: Number(deviceRes.data.Mobile || 0),
-            Desktop: Number(deviceRes.data.Desktop || 0),
-            Tablet: Number(deviceRes.data.Tablet || 0),
+            Mobile: Number(payload.device.Mobile || 0),
+            Desktop: Number(payload.device.Desktop || 0),
+            Tablet: Number(payload.device.Tablet || 0),
           });
         }
 
-        if (Array.isArray(regionRes?.data) && regionRes.data.length) {
-          setRegions(regionRes.data.map((r) => ({ region: r.region, percent: r.percent })));
+        if (Array.isArray(payload.regions) && payload.regions.length) {
+          setRegions(payload.regions.map((r) => ({ region: r.region, percent: Number(r.percent || 0) })));
         }
 
-        if (Array.isArray(pagesRes?.data)) {
-          setTopPages(pagesRes.data);
+        if (Array.isArray(payload.products)) {
+          setTopProducts(payload.products);
         }
 
-        if (eventsRes?.data) {
-          setEventStats(eventsRes.data);
-        }
-
-        const orderStats = orderStatsRes?.data || {};
-        const dashboard = dashboardRes?.data || {};
-        setMonthlyTrend([
-          Number(orderStats.pending || 0),
-          Number(orderStats.processing || 0),
-          Number(orderStats.shipped || 0),
-          Number(orderStats.delivered || 0),
-          Number(orderStats.cancelled || 0),
-          Number(dashboard.totalOrders || 0),
-          Number(dashboard.totalRevenue || 0) / 1000,
-        ]);
-
-        const regionData = Array.isArray(regionRes?.data) ? regionRes.data : [];
-        if (regionData.length) {
-          const buckets = ["18-24", "25-34", "35-44", "45-64", "65+"];
-          const generated = buckets.map((label, idx) => {
-            const baseline = Number(regionData[idx % regionData.length]?.percent || 20);
-            const male = Math.min(90, Math.max(10, 35 + baseline / 2));
-            const female = 100 - male;
-            return {
-              label,
-              male,
-              female,
-              total: `${Math.round(baseline)}%`,
-            };
+        if (payload.events) {
+          setEventStats({
+            totalActive: Number(payload.events.totalActive || 0),
+            newSignups: Number(payload.events.newSignups || 0),
+            retention: Number(payload.events.retention || 0),
           });
-          setAgeRows(generated);
         }
 
-        if (orderStatsResult.status === "rejected") {
-          setLoadError("Order statistics are temporarily unavailable.");
+        if (payload.trend?.values?.length) {
+          setMonthlyTrend(payload.trend.values.map((v) => Number(v || 0)));
+        }
+
+        if (payload.trend?.labels?.length) {
+          setTrendLabels(payload.trend.labels);
         }
       } catch (err) {
-        setLoadError("Failed to load analytics data.");
+        setLoadError("Failed to load realtime analytics data.");
       }
     };
 
     loadAnalytics();
+    intervalId = setInterval(loadAnalytics, 20000);
+
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
   }, [user]);
 
-<<<<<<< HEAD
-  const likedProductsData = useMemo(() => {
-    if (!topPages.length) return likedProducts;
-    return topPages.map((p, index) => ({
-      name: p.page?.replace('/product/', '') || `Product ${index + 1}`,
-      type: 'Top Page',
-      likes: `${p.count || 0}`,
-      image: likedProducts[index % likedProducts.length].image,
-    }));
-  }, [topPages]);
-=======
   useEffect(() => {
     const loadMerchantProfile = async () => {
       if (!user || user.accountType !== "merchant") return;
@@ -237,7 +170,6 @@ export default function MerchantAnalyticsPage() {
       if (intervalId) clearInterval(intervalId);
     };
   }, [user]);
->>>>>>> ab702514040ebb26ccf6345e37517ad5d0c39df4
 
   if (loading || !user) {
     return <div className="min-h-screen bg-[#efefef]" />;
@@ -291,10 +223,10 @@ export default function MerchantAnalyticsPage() {
 
               <div className="mt-3 rounded-[10px] border border-[#ececec] bg-[#fbfbfb] p-3">
                 <svg viewBox="0 0 760 300" className="w-full h-[250px]">
-                  {[1200, 800, 400, 0].map((y) => (
+                  {[30, 20, 10, 0].map((y) => (
                     <g key={y}>
-                      <line x1="36" y1={40 + (1200 - y) * 0.18} x2="740" y2={40 + (1200 - y) * 0.18} stroke="#d8d8d8" strokeDasharray="4 4" />
-                      <text x="2" y={44 + (1200 - y) * 0.18} fontSize="10" fill="#888">{y}</text>
+                      <line x1="36" y1={40 + (30 - y) * 7.2} x2="740" y2={40 + (30 - y) * 7.2} stroke="#d8d8d8" strokeDasharray="4 4" />
+                      <text x="2" y={44 + (30 - y) * 7.2} fontSize="10" fill="#888">{y}</text>
                     </g>
                   ))}
 
@@ -305,14 +237,14 @@ export default function MerchantAnalyticsPage() {
                     points={monthlyTrend
                       .map((value, index) => {
                         const x = 36 + index * 110;
-                        const normalized = Math.max(0, Math.min(1200, Number(value) * 2));
-                        const y = 256 - normalized * 0.18;
+                        const normalized = Math.max(0, Math.min(30, Number(value)));
+                        const y = 256 - normalized * 7.2;
                         return `${x},${y}`;
                       })
                       .join(" ")}
                   />
 
-                  {["1 Jan", "5 Jan", "10 Jan", "15 Jan", "20 Jan", "25 Jan", "31 Jan"].map((d, idx) => (
+                  {trendLabels.map((d, idx) => (
                     <text key={d} x={36 + idx * 110} y="280" fontSize="10" fill="#8a8a8a">{d}</text>
                   ))}
                 </svg>
@@ -321,51 +253,29 @@ export default function MerchantAnalyticsPage() {
               <div className="mt-4 grid grid-cols-3 gap-3 border-t border-[#ececec] pt-3">
                 <div>
                   <p className="text-[10px] uppercase tracking-[0.1em] text-[#7b7b7b]">Total Active</p>
-                  <p className="text-[34px] leading-none font-semibold mt-1">{eventStats.registrations || 0}</p>
+                  <p className="text-[34px] leading-none font-semibold mt-1">{eventStats.totalActive || 0}</p>
                 </div>
                 <div>
                   <p className="text-[10px] uppercase tracking-[0.1em] text-[#7b7b7b]">New Signups</p>
-                  <p className="text-[34px] leading-none font-semibold mt-1 text-[#2f8f55]">{eventStats.listingsPosted || 0}</p>
+                  <p className="text-[34px] leading-none font-semibold mt-1 text-[#2f8f55]">{eventStats.newSignups || 0}</p>
                 </div>
                 <div>
                   <p className="text-[10px] uppercase tracking-[0.1em] text-[#7b7b7b]">Retention</p>
-                  <p className="text-[34px] leading-none font-semibold mt-1">{eventStats.transactions || 0}</p>
+                  <p className="text-[34px] leading-none font-semibold mt-1">{eventStats.retention || 0}%</p>
                 </div>
               </div>
             </div>
 
-            <aside className="rounded-[12px] border border-[#d9d9d9] bg-white p-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h2 className="text-[26px] font-semibold leading-none">Products liked</h2>
-                  <p className="text-[11px] text-[#6f6f6f] mt-1">Trending items in last 30 months</p>
-                </div>
-                <button className="text-[#888]">⋮</button>
-              </div>
-
-<<<<<<< HEAD
-              <div className="mt-3 space-y-2">
-                {likedProductsData.map((product) => (
-                  <div key={product.name} className="flex items-center gap-3 rounded-[8px] border border-[#efefef] bg-[#fafafa] px-3 py-2">
-                    <div className="h-8 w-8 rounded-full overflow-hidden border border-[#ddd]">
-                      <Image src={product.image} alt={product.name} width={32} height={32} className="h-full w-full object-cover" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[12px] font-semibold">{product.name}</p>
-                      <p className="text-[10px] text-[#8a8a8a]">{product.type}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[12px] font-semibold">{product.likes}</p>
-                      <p className="text-[9px] text-[#8a8a8a]">LIKES</p>
-                    </div>
+            <aside className="space-y-4">
+              <section className="rounded-[12px] border border-[#d9d9d9] bg-white p-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h2 className="text-[26px] font-semibold leading-none">Offers liked</h2>
+                    <p className="text-[11px] text-[#6f6f6f] mt-1">Offers saved by customers from nearby deal pages</p>
                   </div>
-                ))}
-              </div>
+                  <button className="text-[#888]">⋮</button>
+                </div>
 
-              <button className="mt-4 h-9 w-full rounded-full border border-[#7db897] bg-white text-[12px] font-semibold text-[#2f8f55]">
-                View All Popular Products ›
-              </button>
-=======
                 {likedOffers.length === 0 ? (
                   <p className="mt-4 text-[12px] text-[#999] italic">No liked offers yet. When customers like your offers, they will appear here.</p>
                 ) : (
@@ -440,7 +350,6 @@ export default function MerchantAnalyticsPage() {
                 )}
                 {/* Removed 'View All Liked Products' per request; content scrolls */}
               </section>
->>>>>>> ab702514040ebb26ccf6345e37517ad5d0c39df4
             </aside>
           </section>
 

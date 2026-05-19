@@ -188,7 +188,7 @@ function NearbyDealsPageContent() {
   const [locationStatus, setLocationStatus] = useState("detecting");
   const [locationError, setLocationError] = useState("");
   const [topDiscountOnly, setTopDiscountOnly] = useState(false);
-  const [activeNowOnly, setActiveNowOnly] = useState(true);
+  const [activeNowOnly, setActiveNowOnly] = useState(false);
   const [sortBy, setSortBy] = useState("nearest");
   const [selectedOfferTypes, setSelectedOfferTypes] = useState({
     Special: false,
@@ -218,6 +218,7 @@ function NearbyDealsPageContent() {
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [authRedirectTo, setAuthRedirectTo] = useState("/nearby-deals");
   const lastLocationUpdateRef = useRef(0);
+  const nearbyFetchSeqRef = useRef(0);
 
   const selectedTypeLabels = useMemo(
     () => Object.keys(selectedOfferTypes).filter((key) => selectedOfferTypes[key]),
@@ -225,8 +226,26 @@ function NearbyDealsPageContent() {
   );
 
   const location = useMemo(() => searchParams.get("location") || "", [searchParams]);
+  const manualLatitude = useMemo(() => {
+    const value = Number(searchParams.get("lat"));
+    // Treat zero or near-zero coordinates as not provided (avoid lat=0 sentinel)
+    return Number.isFinite(value) && Math.abs(value) > 0.000001 ? value : null;
+  }, [searchParams]);
+  const manualLongitude = useMemo(() => {
+    const value = Number(searchParams.get("lng"));
+    // Treat zero or near-zero coordinates as not provided (avoid lng=0 sentinel)
+    return Number.isFinite(value) && Math.abs(value) > 0.000001 ? value : null;
+  }, [searchParams]);
   const query = useMemo(() => searchParams.get("q") || "", [searchParams]);
   const selectedCategory = useMemo(() => searchParams.get("category") || "", [searchParams]);
+
+  // When user types a location search (e.g. "Mumbai"), avoid showing stale "nearby" results
+  // from the previous GPS-based fetch while the new request is loading/processing.
+  useEffect(() => {
+    if (String(location || "").trim()) {
+      setRawOffers([]);
+    }
+  }, [location]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !("geolocation" in navigator)) {
@@ -328,6 +347,7 @@ function NearbyDealsPageContent() {
 
   useEffect(() => {
     const loadNearbyOffers = async () => {
+      const fetchSeq = ++nearbyFetchSeqRef.current;
       setLoading(true);
       setError("");
 
@@ -342,9 +362,12 @@ function NearbyDealsPageContent() {
 
       // If user explicitly provided a location (navbar/manual), prefer that
       // and do not constrain results by current GPS coordinates.
-      const useManualLocation = Boolean(location && String(location).trim().length > 0);
-      const fetchLat = useManualLocation ? undefined : resolvedLat;
-      const fetchLng = useManualLocation ? undefined : resolvedLng;
+      const hasManualCoordinates = manualLatitude !== null && manualLongitude !== null;
+      const hasLocationQuery = Boolean(String(location || "").trim());
+      // When a location string is provided (e.g. "Pune"), do not use live GPS coords,
+      // otherwise results get mixed with the current device location.
+      const fetchLat = hasLocationQuery ? (hasManualCoordinates ? manualLatitude : undefined) : (hasManualCoordinates ? manualLatitude : resolvedLat);
+      const fetchLng = hasLocationQuery ? (hasManualCoordinates ? manualLongitude : undefined) : (hasManualCoordinates ? manualLongitude : resolvedLng);
 
       try {
         const response = await getNearbyOffers({
@@ -368,6 +391,17 @@ function NearbyDealsPageContent() {
           ? response.data.map(normalizeNearbyOffer)
           : [];
 
+        // If the user explicitly provided a location string and the backend
+        // returned no results for that location, do NOT fall back to other
+        // nearby offers — show an empty state instead. This prevents showing
+        // unrelated deals (e.g., Kolhapur) for a typed location like "Mumbai".
+        if (hasLocationQuery && primaryRows.length === 0) {
+          if (fetchSeq !== nearbyFetchSeqRef.current) return;
+          setRawOffers([]);
+          setLoading(false);
+          return;
+        }
+
         // Graceful fallback: if strict geofence returns empty, show relevant offers
         // instead of a blank state (helps when merchant coords are incomplete/inaccurate).
         if (primaryRows.length === 0 && fetchLat !== undefined && fetchLng !== undefined) {
@@ -388,24 +422,30 @@ function NearbyDealsPageContent() {
             limit: 100,
           });
 
-          setRawOffers(
-            Array.isArray(fallbackResponse?.data)
-              ? fallbackResponse.data.map(normalizeNearbyOffer)
-              : [],
-          );
+          if (fetchSeq !== nearbyFetchSeqRef.current) return;
+          const fallbackRows = Array.isArray(fallbackResponse?.data)
+            ? fallbackResponse.data.map(normalizeNearbyOffer)
+            : [];
+          setRawOffers(fallbackRows);
         } else {
+          if (fetchSeq !== nearbyFetchSeqRef.current) return;
           setRawOffers(primaryRows);
         }
       } catch (err) {
+        if (fetchSeq !== nearbyFetchSeqRef.current) return;
         setError(err?.message || "Failed to load nearby offers.");
-        // Keep previous offers visible when API temporarily fails.
+        // For explicit location searches, never keep stale nearby results.
+        if (String(location || "").trim()) {
+          setRawOffers([]);
+        }
       } finally {
+        if (fetchSeq !== nearbyFetchSeqRef.current) return;
         setLoading(false);
       }
     };
 
     loadNearbyOffers();
-  }, [distanceRadius, priceRange, location, query, selectedCategory, sortBy, userCoordinates?.lat, userCoordinates?.lng, selectedTypeLabels, topDiscountOnly, activeNowOnly]);
+  }, [distanceRadius, priceRange, location, query, selectedCategory, sortBy, userCoordinates?.lat, userCoordinates?.lng, manualLatitude, manualLongitude, selectedTypeLabels, topDiscountOnly, activeNowOnly]);
 
   const filteredDeals = useMemo(() => {
     const rows = rawOffers.filter((row) => {
@@ -452,21 +492,45 @@ function NearbyDealsPageContent() {
       return sortedRows;
     }
 
-    // Keep the selected sort order stable while prioritizing rows matching manual location.
-    const locationNeedle = String(location).trim().toLowerCase();
-    const matched = [];
-    const unmatched = [];
+    // When user provided a location string, only include offers whose merchant
+    // store location/address contains that location. Use a normalized, punctuation-
+    // insensitive match so queries like "Kolhapur, Maharashtra, India" match
+    // stored addresses such as "Kolhapur District, Maharashtra, India".
+    const normalize = (v) =>
+      String(v || '')
+        .toLowerCase()
+        .replace(/[^ -\u007F\p{L}\p{N}]+/gu, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
 
-    for (const row of sortedRows) {
-      const address = String(row?.merchant?.address || "").toLowerCase();
-      if (address.includes(locationNeedle)) {
-        matched.push(row);
-      } else {
-        unmatched.push(row);
+    const locationNorm = normalize(location);
+    if (!locationNorm) return [];
+
+    // Prefer the city segment (first comma-separated part). This avoids
+    // matches based only on state/country tokens like "Maharashtra" or "India".
+    const citySegment = String(location).split(',')[0] || location;
+    const cityNorm = normalize(citySegment);
+    const LOCATION_ALIASES = {
+      kolhapur: ['kolhapur', 'karvir', 'karveer', 'karveer taluka', 'karvir taluka'],
+    };
+
+    return sortedRows.filter((row) => {
+      const addressNorm = normalize(row?.merchant?.address || row?.merchant?.name || '');
+      if (!addressNorm) return false;
+
+      // Direct city match (preferred)
+      if (cityNorm && addressNorm.includes(cityNorm)) return true;
+
+      // Alias match for city
+      const aliases = LOCATION_ALIASES[cityNorm];
+      if (aliases && aliases.length) {
+        for (const alias of aliases) {
+          if (normalize(alias) && addressNorm.includes(normalize(alias))) return true;
+        }
       }
-    }
 
-    return [...matched, ...unmatched];
+      return false;
+    });
   }, [rawOffers, activeNowOnly, topDiscountOnly, selectedTypeLabels, location, sortBy]);
 
   const summary = useMemo(() => {
@@ -708,7 +772,11 @@ function NearbyDealsPageContent() {
                 <NearbyDealsSkeleton view={activeView} />
               ) : filteredDeals.length === 0 ? (
                 <div className="col-span-full rounded-xl border border-gray-200 bg-white p-6 text-center text-sm text-gray-500">
-                  No offers found for the selected filters.
+                  {location ? (
+                    <>No deals found for "{location}".</>
+                  ) : (
+                    <>No offers found for the selected filters.</>
+                  )}
                 </div>
               ) : (
                 filteredDeals.map((deal) => (

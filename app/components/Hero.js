@@ -43,17 +43,6 @@ function normalizeImageUrl(rawUrl) {
   return url.replace(/\\/g, "/");
 }
 
-async function fetchActiveBannersViaRewrite(limit = MAX_SLIDES) {
-  // Uses Next rewrite `/api/:path* -> NEXT_PUBLIC_API_URL/:path*` for prod safety.
-  const res = await fetch(`/api/banners/promotions/active?limit=${limit}`, {
-    cache: "no-store",
-  });
-  if (!res.ok) {
-    throw new Error(`Failed to load banners (HTTP ${res.status})`);
-  }
-  return res.json();
-}
-
 export default function Hero() {
   const [slides, setSlides] = useState([]);
   const [current, setCurrent] = useState(0);
@@ -70,13 +59,7 @@ export default function Hero() {
           setLoading(true);
         }
 
-        let res;
-        try {
-          // Prefer the rewrite path so it works even if NEXT_PUBLIC_API_URL/base URL is wrong in prod.
-          res = await fetchActiveBannersViaRewrite(MAX_SLIDES);
-        } catch (e) {
-          res = await getActiveHomepageBanners(MAX_SLIDES);
-        }
+        const res = await getActiveHomepageBanners(MAX_SLIDES);
 
         const bannerCandidate =
           res?.data?.data ??

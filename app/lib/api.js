@@ -30,10 +30,9 @@ export async function submitUserReport(userId, reason, description) {
 // Centralized API Layer — Choja Frontend → ads-microservice
 // ============================================================
 
-<<<<<<< HEAD
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:3002');
-=======
-const FALLBACK_API_URL = 'http://localhost:3002/api';
+const FALLBACK_API_URL = 'http://localhost:3002';
+const ACCESS_TOKEN_STORAGE_KEY = 'golo-access-token';
+const REFRESH_TOKEN_STORAGE_KEY = 'golo-refresh-token';
 
 function normalizeBackendApiBaseUrl(rawValue, fallbackUrl = FALLBACK_API_URL) {
     const trimmedValue = String(rawValue || '').trim();
@@ -51,25 +50,80 @@ function normalizeBackendApiBaseUrl(rawValue, fallbackUrl = FALLBACK_API_URL) {
 
     normalizedValue = normalizedValue.replace(/\/+$/, '');
 
-    if (/^https?:\/\/[^/]+$/i.test(normalizedValue)) {
-        normalizedValue = `${normalizedValue}/api`;
-    }
-
     return normalizedValue;
 }
 
 export const API_BASE_URL = normalizeBackendApiBaseUrl(process.env.NEXT_PUBLIC_API_URL);
-export const API_ORIGIN_URL = API_BASE_URL.replace(/\/api$/, '');
-// Always talk to the backend gateway directly so the frontend can use /api as
-// its own base path without colliding with API requests.
-const BASE_URL = API_BASE_URL;
->>>>>>> ab702514040ebb26ccf6345e37517ad5d0c39df4
+export const API_ORIGIN_URL = API_BASE_URL;
+// Keep the backend base URL as a plain origin so auth routes resolve to /users/*.
+const BASE_URL = API_BASE_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:3002');
 const PUBLIC_AUTH_ENDPOINTS = new Set([
     '/users/login',
     '/users/register',
     '/users/social-auth',
     '/users/refresh',
 ]);
+
+export function getStoredAccessToken() {
+    if (typeof window === 'undefined') {
+        return '';
+    }
+
+    return (
+        localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY) ||
+        localStorage.getItem('accessToken') ||
+        localStorage.getItem('authToken') ||
+        ''
+    );
+}
+
+export function getStoredRefreshToken() {
+    if (typeof window === 'undefined') {
+        return '';
+    }
+
+    return (
+        localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY) ||
+        localStorage.getItem('refreshToken') ||
+        ''
+    );
+}
+
+export function setStoredAuthTokens({ accessToken = '', refreshToken = '' } = {}) {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    if (accessToken) {
+        localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, accessToken);
+        localStorage.setItem('accessToken', accessToken);
+        localStorage.setItem('authToken', accessToken);
+    } else {
+        localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('authToken');
+    }
+
+    if (refreshToken) {
+        localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, refreshToken);
+        localStorage.setItem('refreshToken', refreshToken);
+    } else {
+        localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+        localStorage.removeItem('refreshToken');
+    }
+}
+
+export function clearStoredAuthTokens() {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('authToken');
+}
 
 // --------------- Core Fetch Wrapper ---------------
 
@@ -81,6 +135,11 @@ export async function apiClient(endpoint, options = {}) {
         'Content-Type': 'application/json',
         ...options.headers,
     };
+
+    const storedAccessToken = getStoredAccessToken();
+    if (storedAccessToken && !headers.Authorization && !headers.authorization) {
+        headers.Authorization = `Bearer ${storedAccessToken}`;
+    }
 
     const config = {
         ...options,
@@ -138,17 +197,38 @@ async function handleResponse(response) {
 
 async function tryRefreshToken() {
     try {
+        const refreshToken = getStoredRefreshToken();
+        if (!refreshToken) {
+            return false;
+        }
+
         const response = await fetch(`${BASE_URL}/users/refresh`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
+            body: JSON.stringify({ refreshToken }),
         });
 
+        const data = await response.json().catch(() => null);
+
         if (!response.ok) {
-            localStorage.removeItem('user');
-            window.dispatchEvent(new Event('golo-auth-cleared'));
+            clearStoredAuthTokens();
+            if (typeof window !== 'undefined') {
+                localStorage.removeItem('user');
+                window.dispatchEvent(new Event('golo-auth-cleared'));
+            }
             return false;
         }
+
+        const nextAccessToken = data?.data?.accessToken || data?.accessToken || '';
+        if (!nextAccessToken) {
+            return false;
+        }
+
+        setStoredAuthTokens({
+            accessToken: nextAccessToken,
+            refreshToken,
+        });
 
         return true;
     } catch {
@@ -208,8 +288,11 @@ export async function registerUser({
 }
 
 export async function refreshTokenApi() {
+    const refreshToken = getStoredRefreshToken();
+
     return apiClient('/users/refresh', {
         method: 'POST',
+        body: JSON.stringify({ refreshToken }),
     });
 }
 
@@ -557,13 +640,16 @@ export async function getMyBannerPromotions() {
 }
 
 export async function getMyOfferPromotions() {
-<<<<<<< HEAD
-    const response = await apiClient('/banners/promotions/my?type=offer');
-=======
-    const response = await apiClient('/offers/my', {
-        cache: 'no-store',
-    });
->>>>>>> ab702514040ebb26ccf6345e37517ad5d0c39df4
+    let response;
+
+    try {
+        response = await apiClient('/offers/my', {
+            cache: 'no-store',
+        });
+    } catch {
+        response = await apiClient('/banners/promotions/my?type=offer');
+    }
+
     const rows = Array.isArray(response?.data) ? response.data : [];
 
     // Return server-provided offer rows directly. Client-side localStorage
@@ -585,11 +671,7 @@ export async function getActiveHomepageBanners(limit = 5) {
     return apiClient(`/banners/promotions/active?limit=${limit}`);
 }
 
-<<<<<<< HEAD
-const LOCAL_BACKEND_URL = 'http://localhost:3002';
-=======
-const LOCAL_BACKEND_URL = API_BASE_URL;
->>>>>>> ab702514040ebb26ccf6345e37517ad5d0c39df4
+const LOCAL_BACKEND_URL = API_ORIGIN_URL || 'http://localhost:3002';
 let nearbyOffersRouteMissingOnPrimary = false;
 const NEARBY_OFFERS_PRIMARY_UNSUPPORTED_KEY = 'golo_nearby_offers_primary_unsupported';
 
@@ -701,7 +783,7 @@ export async function getNearbyOffers({
     if (_t) params.set('_t', String(_t));  // cache buster
     params.set('page', String(page));
     params.set('limit', String(limit));
-    const endpoint = `/banners/promotions/offers/nearby?${params.toString()}`;
+    const endpoint = `/offers/nearby?${params.toString()}`;
     const safePage = Number(page) || 1;
     const safeLimit = Number(limit) || 20;
 
@@ -730,7 +812,7 @@ export async function getNearbyOffers({
 }
 
 export async function getNearbyOfferDetails(offerId) {
-    const endpoint = `/banners/promotions/offers/${offerId}`;
+    const endpoint = `/offers/${offerId}`;
 
     if (isNearbyOffersPrimaryUnsupported()) {
         return fetchAbsoluteJson(`${LOCAL_BACKEND_URL}${endpoint}`);
@@ -778,6 +860,17 @@ export async function submitOfferReview(voucherId, payload) {
     return apiClient(`/reviews/vouchers/${voucherId}`, {
         method: 'POST',
         body: JSON.stringify(payload),
+    });
+}
+
+/**
+ * Get public reviews for an offer
+ * @param {string} offerId - Offer ID
+ * @param {object} params - {page, limit}
+ */
+export async function getOfferReviews(offerId, { page = 1, limit = 10 } = {}) {
+    return apiClient(`/reviews/offers/${offerId}?page=${page}&limit=${limit}`, {
+        cache: 'no-store',
     });
 }
 
@@ -1278,6 +1371,13 @@ export async function getMerchantOrderStats() {
 }
 
 /**
+ * Get merchant realtime analytics payload for dashboard sections
+ */
+export async function getMerchantRealtimeAnalytics() {
+    return apiClient('/merchant-dashboard/analytics/realtime');
+}
+
+/**
  * Get analytics device breakdown
  * @param {string} dateRange - Time range for analytics (e.g., '7days', '30days')
  */
@@ -1388,8 +1488,6 @@ export async function updateMerchantProduct(productId, updateData) {
 }
 
 // ============================================================
-<<<<<<< HEAD
-=======
 // MERCHANT ANALYTICS APIS
 // ============================================================
 
@@ -1401,8 +1499,14 @@ export async function getMerchantLikedProducts(limit = 10) {
     return apiClient(`/users/merchant/liked-products?limit=${limit}`);
 }
 
+/**
+ * Get merchant loyalty leaderboard (top customers by loyalty points)
+ */
+export async function getMerchantLoyaltyLeaderboard() {
+    return apiClient('/merchant-dashboard/loyalty-leaderboard');
+}
+
 // ============================================================
->>>>>>> ab702514040ebb26ccf6345e37517ad5d0c39df4
 // BANNER PROMOTION APIs
 // ============================================================
 

@@ -10,7 +10,7 @@ import {
 	OAuthProvider,
 } from "firebase/auth";
 import { firebaseAuth } from "../lib/firebase-client";
-import { socialAuthUser } from "../lib/api";
+import { socialAuthUser, setStoredAuthTokens } from "../lib/api";
 
 const providerFactory = {
 	google: () => {
@@ -69,12 +69,16 @@ export default function SocialButtons({ redirectPath = "/" }) {
 				phone,
 			});
 
-			const authData = backendAuth?.data;
+			const authData = backendAuth?.data?.data || backendAuth?.data;
 			if (!authData?.user) {
 				throw new Error("Social login response is invalid.");
 			}
 
 			localStorage.setItem("user", JSON.stringify(authData.user));
+			setStoredAuthTokens({
+				accessToken: authData?.accessToken || '',
+				refreshToken: authData?.refreshToken || '',
+			});
 
 			await refreshProfile();
 			router.push(redirectPath || "/");

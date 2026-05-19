@@ -6,11 +6,7 @@ import { useRouter } from "next/navigation";
 import { Download, Plus, ChevronRight, ShoppingBag, Box, Star, User } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import MerchantNavbar from "../MerchantNavbar";
-<<<<<<< HEAD
-import { getMerchantDashboardSummary } from "../../lib/api";
-=======
 import { getMerchantDashboardSummary, getMerchantProfile, getMerchantLoyaltyLeaderboard, getMerchantRealtimeAnalytics } from "../../lib/api";
->>>>>>> ab702514040ebb26ccf6345e37517ad5d0c39df4
 
 const orders = [
   { id: "#2456", time: "Placed 12 hours ago", amount: "₹340", qty: "3 items" },
@@ -39,13 +35,10 @@ export default function MerchantDashboardPage() {
   const router = useRouter();
   const { user, loading, logout, getUserAccountType } = useAuth();
   const [summary, setSummary] = useState(null);
-<<<<<<< HEAD
-=======
   const [realtimeAnalytics, setRealtimeAnalytics] = useState(null);
   const [merchantProfile, setMerchantProfile] = useState(null);
   const [loyaltyLeaderboard, setLoyaltyLeaderboard] = useState([]);
   const [lastUpdated, setLastUpdated] = useState(new Date());
->>>>>>> ab702514040ebb26ccf6345e37517ad5d0c39df4
 
   const handleMerchantLogout = async () => {
     await logout();
@@ -104,8 +97,6 @@ export default function MerchantDashboardPage() {
   const accountType = user?.accountType || getUserAccountType();
   if (accountType !== "merchant") return null;
 
-<<<<<<< HEAD
-=======
   const storeAvatar =
     merchantProfile?.profilePhoto ||
     merchantProfile?.shopPhoto ||
@@ -130,7 +121,6 @@ export default function MerchantDashboardPage() {
     })
     .join(" ");
 
->>>>>>> ab702514040ebb26ccf6345e37517ad5d0c39df4
   return (
     <div className="min-h-screen bg-[#ececec] text-[#1b1b1b]" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
       <MerchantNavbar activeKey="dashboard" />
@@ -246,15 +236,9 @@ export default function MerchantDashboardPage() {
                 <button className="text-[12px] font-semibold text-[#1e8b4f]">View All Orders</button>
               </div>
 
-<<<<<<< HEAD
-              <div>
-                {(summary?.recentOrders || orders).map((order) => (
-                  <div key={order._id || order.id} className="px-4 py-3 border-b border-[#f0f0f0] last:border-b-0 flex items-center gap-3">
-=======
               <div className="max-h-[320px] overflow-y-auto">
-                {(summary?.recentOrders || []).map((order) => (
-                  <div key={order._id || order.orderNumber} className="px-4 py-3 border-b border-[#f0f0f0] last:border-b-0 flex items-center gap-3">
->>>>>>> ab702514040ebb26ccf6345e37517ad5d0c39df4
+                {(summary?.recentOrders || orders).map((order) => (
+                  <div key={order._id || order.id || order.orderNumber} className="px-4 py-3 border-b border-[#f0f0f0] last:border-b-0 flex items-center gap-3">
                     <div className="h-8 w-8 rounded-full bg-[#ebf8ef] border border-[#cce9d4] text-[#1f8f4f] flex items-center justify-center">
                       <Box size={14} />
                     </div>
@@ -282,15 +266,9 @@ export default function MerchantDashboardPage() {
                 <button className="text-[#888]">⋮</button>
               </div>
 
-<<<<<<< HEAD
-              <div className="mt-3 space-y-3">
-                {(summary?.latestReviews || latestReviews).map((review) => (
-                  <article key={review._id || review.name} className="rounded-[10px] border border-[#ececec] bg-[#fbfbfb] p-3">
-=======
               <div className="mt-3 max-h-[360px] overflow-y-auto space-y-3">
-                {(summary?.latestReviews || []).map((review) => (
-                  <article key={review._id || review.userName} className="rounded-[10px] border border-[#ececec] bg-[#fbfbfb] p-3">
->>>>>>> ab702514040ebb26ccf6345e37517ad5d0c39df4
+                {(summary?.latestReviews || latestReviews).map((review) => (
+                  <article key={review._id || review.name || review.userName} className="rounded-[10px] border border-[#ececec] bg-[#fbfbfb] p-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-2">
                         <div className="h-7 w-7 rounded-full overflow-hidden border border-[#ddd]">

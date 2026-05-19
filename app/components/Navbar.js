@@ -7,6 +7,7 @@ import { useAuth } from "../context/AuthContext";
 import AuthRequiredModal from "./AuthRequiredModal";
 import { getNotifications, markNotificationRead, markAllNotificationsRead } from "../lib/api";
 import { normalizeAppPath } from "../lib/path";
+import { searchLocations } from "../services/leafletService";
 
 function NavbarContent({
   searchQuery: externalSearchQuery = "",
@@ -38,6 +39,8 @@ function NavbarContent({
   };
 
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [locationSuggestions, setLocationSuggestions] = useState([]);
+  const [locationLoading, setLocationLoading] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -66,10 +69,13 @@ function NavbarContent({
   const secondaryNavLabel = useGolocalHomeNav ? "Nearby Deals" : "Chats";
   const secondaryNavHref = useGolocalHomeNav ? "/nearby-deals" : "/chats";
 
-  const locations = [
-    { city: "Kolhapur", state: "Maharashtra" },
-    { city: "Pune", state: "Maharashtra" },
-    { city: "Mumbai", state: "Maharashtra" },
+  const defaultLocationSuggestions = [
+    { name: "Pune", displayName: "Pune, Maharashtra, India", address: "Pune, Maharashtra, India" },
+    { name: "Mumbai", displayName: "Mumbai, Maharashtra, India", address: "Mumbai, Maharashtra, India" },
+    { name: "Kolhapur", displayName: "Kolhapur, Maharashtra, India", address: "Kolhapur, Maharashtra, India" },
+    { name: "Bangalore", displayName: "Bangalore, Karnataka, India", address: "Bangalore, Karnataka, India" },
+    { name: "Delhi", displayName: "Delhi, India", address: "Delhi, India" },
+    { name: "Hyderabad", displayName: "Hyderabad, Telangana, India", address: "Hyderabad, Telangana, India" },
   ];
 
   useEffect(() => {
@@ -100,6 +106,51 @@ function NavbarContent({
     return () =>
       document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (!showSuggestions || !isAuthenticated) {
+      setLocationLoading(false);
+      if (!showSuggestions) {
+        setLocationSuggestions([]);
+      }
+      return;
+    }
+
+    const trimmedLocation = location.trim();
+    let active = true;
+
+    if (!trimmedLocation) {
+      setLocationSuggestions(defaultLocationSuggestions.slice(0, 6));
+      setLocationLoading(false);
+      return;
+    }
+
+    setLocationLoading(true);
+    const timer = setTimeout(async () => {
+      try {
+        const results = await searchLocations(trimmedLocation, { limit: 6, country: "in" });
+        if (!active) return;
+        setLocationSuggestions(
+          Array.isArray(results) && results.length > 0
+            ? results.slice(0, 6)
+            : defaultLocationSuggestions.slice(0, 6),
+        );
+      } catch {
+        if (active) {
+          setLocationSuggestions(defaultLocationSuggestions.slice(0, 6));
+        }
+      } finally {
+        if (active) {
+          setLocationLoading(false);
+        }
+      }
+    }, 250);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [location, showSuggestions, isAuthenticated]);
 
   // Fetch notifications for authenticated users
   const fetchNotifications = async () => {
@@ -151,21 +202,27 @@ function NavbarContent({
     }
   };
 
-  const runSearch = (nextSearch = searchQuery, nextLocation = location) => {
-    if (!isAuthenticated) {
-      setShowAuthPrompt(true);
-      return;
-    }
-
+  const runSearch = (nextSearch = searchQuery, nextLocation = location, nextCoordinates = null) => {
     const trimmedSearch = nextSearch.trim();
     const trimmedLocation = nextLocation.trim();
 
     const params = new URLSearchParams();
     if (trimmedSearch) params.set("q", trimmedSearch);
     if (trimmedLocation) params.set("location", trimmedLocation);
+    if (nextCoordinates && Number.isFinite(nextCoordinates.lat) && Number.isFinite(nextCoordinates.lng)) {
+      params.set("lat", String(nextCoordinates.lat));
+      params.set("lng", String(nextCoordinates.lng));
+    }
 
-    const isGolocalSurface = pathname === "/" || pathname.startsWith("/nearby-deals");
-    const targetBase = isGolocalSurface ? "/nearby-deals" : "/choja";
+    const isNearbySurface = pathname.startsWith("/nearby-deals");
+    const targetBase = isNearbySurface || pathname === "/" ? "/nearby-deals" : "/choja";
+
+    // Nearby deals browsing (including location/city filtering) should work without auth.
+    if (!isAuthenticated && targetBase !== "/nearby-deals") {
+      setShowAuthPrompt(true);
+      return;
+    }
+
     router.push(params.toString() ? `${targetBase}?${params.toString()}` : targetBase);
   };
 
@@ -307,33 +364,39 @@ function NavbarContent({
             {/* LOCATION DROPDOWN */}
             {showSuggestions && (
               <div className="absolute top-14 left-0 w-full rounded-xl shadow-lg py-2 z-50 bg-white border border-gray-200">
-                {locations
-                  .filter((place) => !location.trim() || place.city.toLowerCase().includes(location.trim().toLowerCase()))
-                  .map((place, index) => (
-                  <div key={index}>
-                    <div
-                      onClick={() => {
-                        setLocation(place.city);
-                        setShowSuggestions(false);
-                        runSearch(searchQuery, place.city);
-                      }}
-                      className="flex items-start gap-3 px-4 py-3 cursor-pointer hover:bg-gray-100 transition"
-                    >
-                      <MapPin
-                        size={16}
-                        style={{ color: "var(--color-primary)" }}
-                      />
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium text-black">
-                          {place.city}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {place.state}
-                        </span>
+                {locationLoading ? (
+                  <div className="px-4 py-3 text-sm text-gray-500">Searching cities...</div>
+                ) : locationSuggestions.length > 0 ? (
+                  locationSuggestions.slice(0, 6).map((place, index) => (
+                    <div key={`${place.displayName || place.name || index}-${index}`}>
+                      <div
+                        onClick={() => {
+                          const nextLocation = place.displayName || place.address || place.name || place.city || "";
+                          const nextCoordinates = place.coordinates || null;
+                          setLocation(nextLocation);
+                          setShowSuggestions(false);
+                          runSearch(searchQuery, nextLocation, nextCoordinates);
+                        }}
+                        className="flex items-start gap-3 px-4 py-3 cursor-pointer hover:bg-gray-100 transition"
+                      >
+                        <MapPin
+                          size={16}
+                          style={{ color: "var(--color-primary)" }}
+                        />
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium text-black">
+                            {place.name || place.city || place.displayName?.split(",")[0] || "Location"}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {place.displayName || place.address || place.state || "India"}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <div className="px-4 py-3 text-sm text-gray-500">No city matches found.</div>
+                )}
               </div>
             )}
           </div>

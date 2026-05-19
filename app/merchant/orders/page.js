@@ -24,9 +24,6 @@ export default function MerchantOrdersPage() {
 
   const filteredOrders = useMemo(() => {
     if (activeTab === "all") return orders;
-<<<<<<< HEAD
-    return orders.filter((order) => order.fulfillmentStatus === activeTab);
-=======
     if (activeTab === "accepted") {
       return orders.filter((order) => order.fulfillmentStatus === "accepted");
     }
@@ -38,7 +35,6 @@ export default function MerchantOrdersPage() {
       return orders.filter((order) => order.fulfillmentStatus === "rejected");
     }
     return orders;
->>>>>>> ab702514040ebb26ccf6345e37517ad5d0c39df4
   }, [activeTab, orders]);
 
   const formatOrderForUi = (order) => {
@@ -76,8 +72,9 @@ export default function MerchantOrdersPage() {
       time: `Purchased ${date.toLocaleTimeString()}`,
       date: date.toLocaleDateString(),
       customer: order.customerName || "Customer",
+        customerPhone: order.customerPhone || null,
       customerType: "Customer",
-      avatar: "/images/place2.avif",
+      avatar: order.customerAvatar || "/images/place2.avif",
       fulfillmentStatus: isPending ? "pending" : raw,
       action,
       actionTone,
@@ -251,7 +248,7 @@ export default function MerchantOrdersPage() {
                       </div>
                       <div className="min-w-0">
                         <p className="text-[13px] font-semibold text-[#222]">{order.customer}</p>
-                        <p className="text-[10px] text-[#8a8a8a]">{order.customerType}</p>
+                        <p className="text-[10px] text-[#8a8a8a]">{order.customerType} • {order.customerPhone || "-"}</p>
                       </div>
                     </div>
 

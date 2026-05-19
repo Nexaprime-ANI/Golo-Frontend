@@ -112,7 +112,8 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       const response = await login(email, password, accountType);
-      const loggedInUser = response?.data?.user;
+      const authData = response?.data?.data || response?.data;
+      const loggedInUser = authData?.user;
 
       if (shouldGoToGolocalOnboarding(loggedInUser?.email || email, loggedInUser?.accountType || accountType)) {
         router.push("/golocal/onboarding");

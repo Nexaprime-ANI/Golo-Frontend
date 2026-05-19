@@ -17,12 +17,8 @@ import {
 } from "../lib/api";
 import { API_ORIGIN_URL } from "../lib/api";
 
-<<<<<<< HEAD
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === "production" ? "" : "http://localhost:3002");
-=======
 const API_BASE = "/api";
 const SOCKET_ORIGIN = API_ORIGIN_URL || "https://golo-backend-new.onrender.com";
->>>>>>> ab702514040ebb26ccf6345e37517ad5d0c39df4
 const CALL_ICE_SERVERS = [{ urls: "stun:stun.l.google.com:19302" }];
 
 const formatCallDuration = (value) => {

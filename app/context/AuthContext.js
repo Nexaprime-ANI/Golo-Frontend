@@ -1,7 +1,16 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { API_BASE_URL, apiClient, loginUser, registerUser, logoutUser, getProfile, updateMerchantStoreLocation } from "../lib/api";
+import {
+    API_BASE_URL,
+    loginUser,
+    registerUser,
+    logoutUser,
+    getProfile,
+    updateMerchantStoreLocation,
+    setStoredAuthTokens,
+    clearStoredAuthTokens,
+} from "../lib/api";
 
 const AuthContext = createContext(null);
 
@@ -29,8 +38,14 @@ export function AuthProvider({ children }) {
                 if (!mounted) return;
                 const profileUser = response?.data;
                 if (profileUser) {
-                    localStorage.setItem("user", JSON.stringify(profileUser));
-                    setUser(profileUser);
+                    const currentUser = JSON.parse(localStorage.getItem("user") || "null");
+                    const mergedProfileUser = {
+                        ...(currentUser || {}),
+                        ...profileUser,
+                        accountType: profileUser?.accountType || currentUser?.accountType || "user",
+                    };
+                    localStorage.setItem("user", JSON.stringify(mergedProfileUser));
+                    setUser(mergedProfileUser);
                 }
             } catch {
                 if (!mounted) return;
@@ -41,6 +56,7 @@ export function AuthProvider({ children }) {
         })();
 
         const handleAuthCleared = () => {
+            clearStoredAuthTokens();
             localStorage.removeItem("user");
             setUser(null);
         };
@@ -55,8 +71,14 @@ export function AuthProvider({ children }) {
 
     const login = useCallback(async (email, password, accountType = "user") => {
         const response = await loginUser(email, password, accountType);
+        const authData = response?.data?.data || response?.data || {};
+        const userData = authData?.user || null;
+        const accessToken = authData?.accessToken || '';
+        const refreshToken = authData?.refreshToken || '';
 
-        const { user: userData } = response.data;
+        if (!userData || !accessToken) {
+            throw new Error("Login response missing authentication data.");
+        }
 
         // Ensure accountType is preserved from response or fallback to login parameter
         const userDataWithType = {
@@ -65,6 +87,7 @@ export function AuthProvider({ children }) {
         };
 
         localStorage.setItem("user", JSON.stringify(userDataWithType));
+        setStoredAuthTokens({ accessToken, refreshToken });
 
         if (typeof window !== "undefined" && userDataWithType?.accountType === "merchant") {
             try {
@@ -126,6 +149,7 @@ export function AuthProvider({ children }) {
             // Logout from server failed, but still clear local state
         }
 
+        clearStoredAuthTokens();
         localStorage.removeItem("user");
         setUser(null);
     }, []);
