@@ -9,7 +9,7 @@ import Navbar from "./components/Navbar";
 import CategoryBar from "./components/CategoryBar";
 import Hero from "./components/Hero";
 import Footer from "./components/Footer";
-import { getNearbyOffers } from "./lib/api";
+import { getHomeSectionConfig, getNearbyOffers } from "./lib/api";
 
 const SHOP_FALLBACKS = [
   {
@@ -229,6 +229,32 @@ function buildDealCards(offers = []) {
     .filter(Boolean);
 }
 
+function SectionSkeleton({ title }) {
+  return (
+    <section className="border-t border-[#bcc4cf] bg-[#f4f4f4] py-10">
+      <div className="mx-auto max-w-[1260px] px-4 lg:px-6">
+        <div className="mb-5 h-8 w-56 animate-pulse rounded-full bg-[#e2e8f0]" />
+        <div className="flex gap-4 overflow-hidden pb-2">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <article
+              key={`${title}-skeleton-${index}`}
+              className="min-w-[280px] max-w-[280px] overflow-hidden rounded-[14px] border border-[#e2e8f0] bg-white shadow-[0_2px_12px_rgba(15,23,42,0.05)]"
+            >
+              <div className="h-[190px] w-full animate-pulse bg-[#dbe3ed]" />
+              <div className="flex min-h-[170px] flex-col gap-4 bg-[#ffe1a3] p-4">
+                <div className="h-6 w-4/5 animate-pulse rounded-full bg-[#f4d77f]" />
+                <div className="h-4 w-full animate-pulse rounded-full bg-[#f4d77f]" />
+                <div className="h-4 w-5/6 animate-pulse rounded-full bg-[#f4d77f]" />
+                <div className="mt-auto h-10 w-full animate-pulse rounded-[7px] bg-[#ffd16c]" />
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function SectionCarousel({ title, items, onItemClick }) {
   const scrollRef = useRef(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -346,10 +372,11 @@ function SectionCarousel({ title, items, onItemClick }) {
 
 function HomeContent() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [shops, setShops] = useState(SHOP_FALLBACKS);
-  const [dealsUnder2Km, setDealsUnder2Km] = useState(DEAL_FALLBACKS.slice(0, 4));
-  const [recommendedDeals, setRecommendedDeals] = useState(DEAL_FALLBACKS.slice(4, 8));
-  const [coupleDeals, setCoupleDeals] = useState(DEAL_FALLBACKS.slice(6, 10));
+  const [shops, setShops] = useState([]);
+  const [dealsUnder2Km, setDealsUnder2Km] = useState([]);
+  const [recommendedDeals, setRecommendedDeals] = useState([]);
+  const [coupleDeals, setCoupleDeals] = useState([]);
+  const [isLoadingRows, setIsLoadingRows] = useState(true);
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading, getUserAccountType } = useAuth();
@@ -370,14 +397,22 @@ function HomeContent() {
     const hasFilteredSearch = Boolean(selectedLocation.trim() || selectedQuery.trim());
 
     async function loadHomepageRows() {
+      setIsLoadingRows(true);
       try {
-        const response = await getNearbyOffers({
-          limit: 24,
-          activeNowOnly: true,
-          location: selectedLocation || undefined,
-          q: selectedQuery || undefined,
-        });
+        const [response, sectionConfigResponse] = await Promise.all([
+          getNearbyOffers({
+            limit: 24,
+            activeNowOnly: true,
+            location: selectedLocation || undefined,
+            q: selectedQuery || undefined,
+          }),
+          getHomeSectionConfig().catch(() => null),
+        ]);
+
         const rows = normalizeOffers(response);
+        const sectionConfig = sectionConfigResponse?.data || {};
+        const configuredIds = sectionConfig?.sections || {};
+        const configuredOffers = sectionConfig?.resolved || {};
 
         if (cancelled) return;
 
@@ -394,17 +429,69 @@ function HomeContent() {
         const shopRows = buildShopCards(rows).slice(0, 8);
         const dealRows = buildDealCards(rows);
 
+        const hasConfiguredIds = (key) =>
+          Array.isArray(configuredIds?.[key]) && configuredIds[key].length > 0;
+
+        const configuredShopRows = buildShopCards(configuredOffers?.popularShops || []).slice(0, 8);
+        const configuredDealsUnder2Km = buildDealCards(configuredOffers?.dealsUnder2Km || []).slice(0, 8);
+        const configuredRecommendedDeals = buildDealCards(configuredOffers?.recommendedDeals || []).slice(0, 8);
+        const configuredCoupleDeals = buildDealCards(configuredOffers?.coupleDeals || []).slice(0, 8);
+
         if (shopRows.length > 0) {
-          setShops(shopRows);
+          if (hasConfiguredIds("popularShops")) {
+            setShops(configuredShopRows);
+          } else {
+            setShops(shopRows);
+          }
         }
 
         if (dealRows.length > 0) {
-          setDealsUnder2Km(dealRows.slice(0, 8));
-          setRecommendedDeals(dealRows.slice(4, 12).length ? dealRows.slice(4, 12) : dealRows.slice(0, 8));
-          setCoupleDeals(dealRows.slice(8, 16).length ? dealRows.slice(8, 16) : dealRows.slice(0, 8));
+          if (hasConfiguredIds("dealsUnder2Km")) {
+            setDealsUnder2Km(configuredDealsUnder2Km);
+          } else {
+            setDealsUnder2Km(dealRows.slice(0, 8));
+          }
+
+          if (hasConfiguredIds("recommendedDeals")) {
+            setRecommendedDeals(configuredRecommendedDeals);
+          } else {
+            setRecommendedDeals(
+              dealRows.slice(4, 12).length ? dealRows.slice(4, 12) : dealRows.slice(0, 8),
+            );
+          }
+
+          if (hasConfiguredIds("coupleDeals")) {
+            setCoupleDeals(configuredCoupleDeals);
+          } else {
+            setCoupleDeals(
+              dealRows.slice(8, 16).length ? dealRows.slice(8, 16) : dealRows.slice(0, 8),
+            );
+          }
+        }
+
+        if (!shopRows.length && hasConfiguredIds("popularShops")) {
+          setShops(configuredShopRows);
+        }
+        if (!dealRows.length && hasConfiguredIds("dealsUnder2Km")) {
+          setDealsUnder2Km(configuredDealsUnder2Km);
+        }
+        if (!dealRows.length && hasConfiguredIds("recommendedDeals")) {
+          setRecommendedDeals(configuredRecommendedDeals);
+        }
+        if (!dealRows.length && hasConfiguredIds("coupleDeals")) {
+          setCoupleDeals(configuredCoupleDeals);
         }
       } catch {
-        // Keep visual fallbacks when live data is unavailable.
+        if (!cancelled) {
+          setShops([]);
+          setDealsUnder2Km([]);
+          setRecommendedDeals([]);
+          setCoupleDeals([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingRows(false);
+        }
       }
     }
 
@@ -454,29 +541,40 @@ function HomeContent() {
           </div>
         </div>
 
-        <SectionCarousel
-          title="Popular Shops"
-          items={shops}
-          onItemClick={handleShopClick}
-        />
+        {isLoadingRows ? (
+          <>
+            <SectionSkeleton title="Popular Shops" />
+            <SectionSkeleton title="Deals Under 2 KM" />
+            <SectionSkeleton title="Recommended Deals" />
+            <SectionSkeleton title="Couple Deals" />
+          </>
+        ) : (
+          <>
+            <SectionCarousel
+              title="Popular Shops"
+              items={shops}
+              onItemClick={handleShopClick}
+            />
 
-        <SectionCarousel
-          title="Deals Under 2 KM"
-          items={dealsUnder2Km}
-          onItemClick={handleDealClick}
-        />
+            <SectionCarousel
+              title="Deals Under 2 KM"
+              items={dealsUnder2Km}
+              onItemClick={handleDealClick}
+            />
 
-        <SectionCarousel
-          title="Recommended Deals"
-          items={recommendedDeals}
-          onItemClick={handleDealClick}
-        />
+            <SectionCarousel
+              title="Recommended Deals"
+              items={recommendedDeals}
+              onItemClick={handleDealClick}
+            />
 
-        <SectionCarousel
-          title="Couple Deals"
-          items={coupleDeals}
-          onItemClick={handleDealClick}
-        />
+            <SectionCarousel
+              title="Couple Deals"
+              items={coupleDeals}
+              onItemClick={handleDealClick}
+            />
+          </>
+        )}
 
         <Footer />
       </main>

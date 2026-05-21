@@ -569,13 +569,13 @@ function NavbarContent({
                   >
                     <User size={16} /> Profile
                   </Link>
-                  <Link
+                  {/* <Link
                     href="/profile/rewards"
                     onClick={() => setShowProfileMenu(false)}
                     className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
                   >
                     <Trophy size={16} /> Points & Rewards
-                  </Link>
+                  </Link> */}
                   <Link
                     href="/profile/favorites"
                     onClick={() => setShowProfileMenu(false)}

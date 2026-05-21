@@ -671,6 +671,12 @@ export async function getActiveHomepageBanners(limit = 5) {
     return apiClient(`/banners/promotions/active?limit=${limit}`);
 }
 
+export async function getHomeSectionConfig() {
+    return apiClient('/home-sections/config', {
+        cache: 'no-store',
+    });
+}
+
 const LOCAL_BACKEND_URL = API_ORIGIN_URL || 'http://localhost:3002';
 let nearbyOffersRouteMissingOnPrimary = false;
 const NEARBY_OFFERS_PRIMARY_UNSUPPORTED_KEY = 'golo_nearby_offers_primary_unsupported';
@@ -1523,7 +1529,7 @@ export async function updateMyBannerPromotion(promotionId, updateData) {
 }
 
 export async function updateMyOfferPromotion(promotionId, updateData) {
-    const response = await apiClient(`/banners/promotions/${promotionId}?type=offer`, {
+    const response = await apiClient(`/offers/${promotionId}`, {
         method: 'PUT',
         body: JSON.stringify(updateData),
     });
@@ -1542,7 +1548,7 @@ export async function deleteMyBannerPromotion(promotionId) {
 }
 
 export async function deleteMyOfferPromotion(promotionId) {
-    const response = await apiClient(`/banners/promotions/${promotionId}?type=offer`, {
+    const response = await apiClient(`/offers/${promotionId}`, {
         method: 'DELETE',
     });
     forgetOfferPromotionId(promotionId);
@@ -1553,7 +1559,7 @@ export async function deleteMyOfferPromotion(promotionId) {
  * Save merchant offer template in backend cache (Redis)
  */
 export async function saveMyOfferTemplate(payload) {
-    return apiClient('/banners/promotions/template/save', {
+    return apiClient('/offers/template/save', {
         method: 'POST',
         body: JSON.stringify(payload),
     });
@@ -1563,14 +1569,14 @@ export async function saveMyOfferTemplate(payload) {
  * Get merchant offer template from backend cache (Redis)
  */
 export async function getMyOfferTemplate() {
-    return apiClient('/banners/promotions/template');
+    return apiClient('/offers/template');
 }
 
 /**
  * Clear merchant offer template from backend cache (Redis)
  */
 export async function clearMyOfferTemplate() {
-    return apiClient('/banners/promotions/template', {
+    return apiClient('/offers/template', {
         method: 'DELETE',
     });
 }

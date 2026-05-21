@@ -63,9 +63,10 @@ export default function MerchantDashboardPage() {
     const loadSummary = async () => {
       if (!user || (user?.accountType || getUserAccountType()) !== "merchant") return;
       try {
-        const [summaryRes, realtimeRes] = await Promise.allSettled([
+        const [summaryRes, realtimeRes, profileRes] = await Promise.allSettled([
           getMerchantDashboardSummary(),
           getMerchantRealtimeAnalytics(),
+          getMerchantProfile(),
         ]);
 
         if (summaryRes.status === "fulfilled") {
@@ -74,6 +75,10 @@ export default function MerchantDashboardPage() {
 
         if (realtimeRes.status === "fulfilled") {
           setRealtimeAnalytics(realtimeRes.value?.data || null);
+        }
+
+        if (profileRes && profileRes.status === "fulfilled") {
+          setMerchantProfile(profileRes.value?.data || null);
         }
 
         setLastUpdated(new Date());
@@ -131,7 +136,7 @@ export default function MerchantDashboardPage() {
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="flex items-start gap-4">
                 <div className="h-14 w-14 rounded-full overflow-hidden border border-[#dadada]">
-                  <Image src="/images/deal2.avif" alt="Moon Cafe" width={56} height={56} className="h-full w-full object-cover" />
+                  <Image src={storeAvatar || "/images/deal2.avif"} alt={merchantProfile?.shopName || merchantProfile?.storeName || user?.shopName || "My Store"} width={56} height={56} className="h-full w-full object-cover" />
                 </div>
                 <div>
                   <p className="text-[9px] text-[#737373]">Open Now • Last updated {Math.floor((new Date() - lastUpdated) / 60000)} mins ago</p>

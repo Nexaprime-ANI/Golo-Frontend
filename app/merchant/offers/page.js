@@ -6,6 +6,7 @@ import { Plus, Search } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import MerchantNavbar from "../MerchantNavbar";
 import OfferProductEditor from "./components/OfferProductEditor";
+import { uploadToCloudinary, getCloudinaryConfig, isValidCloudinaryUrl } from "../../services/cloudinaryConfig";
 import {
   deleteMyOfferPromotion,
   getMyOfferPromotions,
@@ -111,7 +112,10 @@ export default function MerchantOffersPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [editingOfferId, setEditingOfferId] = useState(null);
+  const [viewMode, setViewMode] = useState(false);
   const [formError, setFormError] = useState("");
+  const [imageUploading, setImageUploading] = useState(false);
+  const [imageUploadError, setImageUploadError] = useState("");
   const [formData, setFormData] = useState({
     title: "",
     category: "Special",
@@ -177,6 +181,7 @@ export default function MerchantOffersPage() {
 
   const openEditForm = (offer) => {
     setEditingOfferId(offer.requestId);
+    setViewMode(false);
     setFormData({
       title: offer.title || "",
       category: offer.category || "Special",
@@ -189,6 +194,47 @@ export default function MerchantOffersPage() {
     setFormOpen(true);
   };
 
+  const openViewForm = (offer) => {
+    setEditingOfferId(offer.requestId);
+    setViewMode(true);
+    setFormData({
+      title: offer.title || "",
+      category: offer.category || "Special",
+      imageUrl: offer.imageUrl || "",
+      startDate: toDateInputValue(offer.startDate),
+      endDate: toDateInputValue(offer.endDate),
+    });
+    setSelectedProducts(normalizeSelectedProducts(offer.selectedProducts));
+    setFormError("");
+    setFormOpen(true);
+  };
+
+  const handleImageFileChange = async (file) => {
+    if (!file) return;
+    setImageUploadError("");
+    setImageUploading(true);
+    try {
+      const res = await uploadToCloudinary(file);
+      if (res && res.url) {
+        setFormData((prev) => ({ ...prev, imageUrl: res.url }));
+      } else if (res && res.secure_url) {
+        setFormData((prev) => ({ ...prev, imageUrl: res.secure_url }));
+      } else {
+        throw new Error('Invalid upload response');
+      }
+    } catch (err) {
+      setImageUploadError(err?.message || 'Failed to upload image');
+    } finally {
+      setImageUploading(false);
+    }
+  };
+
+  const onImageInputChange = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    await handleImageFileChange(file);
+  };
+
   const totalOfferValue = useMemo(
     () => selectedProducts.reduce((sum, item) => sum + Number(item.offerPrice || 0), 0),
     [selectedProducts],
@@ -196,6 +242,7 @@ export default function MerchantOffersPage() {
 
   const closeForm = () => {
     setFormOpen(false);
+    setViewMode(false);
     resetForm();
   };
 
@@ -245,7 +292,6 @@ export default function MerchantOffersPage() {
           category: updatedCategory,
           imageUrl: updatedImageUrl,
           selectedDates,
-          totalPrice: Math.round(totalOfferValue),
           selectedProducts: updatedSelectedProducts,
         });
 
@@ -367,7 +413,7 @@ export default function MerchantOffersPage() {
             {formOpen ? (
               <div className="mt-4 rounded-[10px] border border-[#e3e3e3] bg-white p-4">
                 <div className="mb-3 flex items-center justify-between gap-2">
-                  <h2 className="text-[16px] font-semibold text-[#2a2a2a]">Edit Offer</h2>
+                  <h2 className="text-[16px] font-semibold text-[#2a2a2a]">{viewMode ? "View Offer" : "Edit Offer"}</h2>
                   <button
                     type="button"
                     onClick={closeForm}
@@ -383,6 +429,7 @@ export default function MerchantOffersPage() {
                     <input
                       value={formData.title}
                       onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
+                      disabled={viewMode}
                       className="h-9 w-full rounded-[8px] border border-[#dedede] bg-white px-3 text-[12px] outline-none"
                       placeholder="Enter offer title"
                     />
@@ -392,7 +439,8 @@ export default function MerchantOffersPage() {
                     <label className="mb-1 block text-[11px] font-semibold text-[#555]">Category</label>
                     <select
                       value={formData.category}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, category: e.target.value }))}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, category: e.target.value }))}
+                        disabled={viewMode}
                       className="h-9 w-full rounded-[8px] border border-[#dedede] bg-white px-3 text-[12px] outline-none"
                     >
                       {OFFER_CATEGORIES.map((item) => (
@@ -402,13 +450,40 @@ export default function MerchantOffersPage() {
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="mb-1 block text-[11px] font-semibold text-[#555]">Image URL</label>
-                    <input
-                      value={formData.imageUrl}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, imageUrl: e.target.value }))}
-                      className="h-9 w-full rounded-[8px] border border-[#dedede] bg-white px-3 text-[12px] outline-none"
-                      placeholder="https://example.com/offer-image.jpg"
-                    />
+                    <label className="mb-1 block text-[11px] font-semibold text-[#555]">Image</label>
+                    <div className="flex flex-col md:flex-row gap-4">
+                      <div className="w-full md:w-48">
+                        {formData.imageUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={formData.imageUrl} alt="Offer" className="w-full h-32 object-cover rounded border border-[#dedede]" />
+                        ) : (
+                          <div className="w-full h-32 bg-[#f2f2f2] rounded border border-[#dedede] flex items-center justify-center text-[12px] text-[#888]">No image</div>
+                        )}
+                      </div>
+
+                      <div className="flex-1 flex flex-col justify-center space-y-2">
+                        <label className="flex items-center justify-center h-20 border-2 border-dashed border-[#157a4f] rounded-[8px] cursor-pointer hover:bg-[#f5fff9] transition">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const f = e.target.files && e.target.files[0];
+                              if (f) handleImageFileChange(f);
+                            }}
+                            disabled={viewMode || imageUploading}
+                            className="hidden"
+                          />
+                          <div className="text-center">
+                            <div className="text-[14px] font-semibold text-[#157a4f]">
+                              {imageUploading ? 'Uploading...' : 'Click to upload image'}
+                            </div>
+                            <div className="text-[11px] text-[#888] mt-1">or drag and drop</div>
+                          </div>
+                        </label>
+                        {imageUploadError ? <p className="text-[12px] text-[#ef4d4d]">{imageUploadError}</p> : null}
+                        <p className="text-[11px] text-[#666]">Supported formats: JPG, PNG, WebP (Max 10MB)</p>
+                      </div>
+                    </div>
                   </div>
 
                   <div>
@@ -417,6 +492,7 @@ export default function MerchantOffersPage() {
                       type="date"
                       value={formData.startDate}
                       onChange={(e) => setFormData((prev) => ({ ...prev, startDate: e.target.value }))}
+                      disabled={viewMode}
                       className="h-9 w-full rounded-[8px] border border-[#dedede] bg-white px-3 text-[12px] outline-none"
                     />
                   </div>
@@ -427,25 +503,43 @@ export default function MerchantOffersPage() {
                       type="date"
                       value={formData.endDate}
                       onChange={(e) => setFormData((prev) => ({ ...prev, endDate: e.target.value }))}
+                      disabled={viewMode}
                       className="h-9 w-full rounded-[8px] border border-[#dedede] bg-white px-3 text-[12px] outline-none"
                     />
                   </div>
 
                   <div className="md:col-span-2">
-                    <OfferProductEditor
-                      value={selectedProducts}
-                      onChange={setSelectedProducts}
-                    />
+                    {viewMode ? (
+                      <div className="space-y-2">
+                        {selectedProducts.length === 0 ? <p className="text-[12px] text-[#666]">No products</p> : null}
+                        {selectedProducts.map((p) => (
+                          <div key={p.productId} className="flex items-center gap-3 border border-[#f0f0f0] rounded p-2">
+                            {p.imageUrl ? <img src={p.imageUrl} alt={p.productName} className="h-12 w-12 object-cover rounded" /> : <div className="h-12 w-12 bg-[#f2f2f2] rounded" />}
+                            <div>
+                              <div className="font-semibold text-[14px]">{p.productName}</div>
+                              <div className="text-[12px] text-[#666]">Offer Price: ₹{p.offerPrice}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <OfferProductEditor
+                        value={selectedProducts}
+                        onChange={setSelectedProducts}
+                      />
+                    )}
                   </div>
 
                   <div className="flex items-end justify-end">
-                    <button
-                      type="submit"
-                      disabled={formSubmitting}
-                      className="h-9 rounded-[8px] bg-[#2f9e58] px-4 text-[11px] font-semibold text-white disabled:opacity-70"
-                    >
-                      {formSubmitting ? "Saving..." : "Save Changes"}
-                    </button>
+                    {!viewMode ? (
+                      <button
+                        type="submit"
+                        disabled={formSubmitting}
+                        className="h-9 rounded-[8px] bg-[#2f9e58] px-4 text-[11px] font-semibold text-white disabled:opacity-70"
+                      >
+                        {formSubmitting ? "Saving..." : "Save Changes"}
+                      </button>
+                    ) : null}
                   </div>
                 </form>
 
@@ -494,7 +588,11 @@ export default function MerchantOffersPage() {
                       </td>
                       <td className="px-4 py-3 text-[#2c2c2c]">{formatDateForDisplay(row.endDate)}</td>
                       <td className="px-4 py-3 text-[11px]">
-                        <button onClick={() => openEditForm(row)} className="text-[#f0aa19] font-semibold">Edit</button>
+                        {row.status === "active" ? (
+                          <button onClick={() => openEditForm(row)} className="text-[#f0aa19] font-semibold">Edit</button>
+                        ) : (
+                          <button onClick={() => openViewForm(row)} className="text-[#1f6fb3] font-semibold">View</button>
+                        )}
                         <span className="mx-2 text-[#cfcfcf]">/</span>
                         <button onClick={() => onDeleteOffer(row)} className="text-[#ef4d4d] font-semibold">Delete</button>
                       </td>
