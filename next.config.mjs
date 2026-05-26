@@ -13,6 +13,7 @@ const APP_BASE_PATH =
 const FRONTEND_ROOT = fileURLToPath(new URL('.', import.meta.url));
 
 const nextConfig = {
+  output: 'standalone',
   basePath: APP_BASE_PATH || undefined,
   reactCompiler: true,
   turbopack: {
