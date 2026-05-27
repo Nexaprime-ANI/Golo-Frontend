@@ -3,9 +3,7 @@ import { fileURLToPath } from 'url';
 /** @type {import('next').NextConfig} */
 
 const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ||
-  process.env.API_URL ||
-  'https://golo-backend-new.onrender.com';
+  process.env.NEXT_PUBLIC_API_URL;
 
 const APP_BASE_PATH =
   process.env.NEXT_PUBLIC_APP_BASE_PATH?.trim() || '';
