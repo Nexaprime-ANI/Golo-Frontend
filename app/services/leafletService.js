@@ -94,23 +94,27 @@ function getLocalSearchResults(query) {
   console.log("🏠 [getLocalSearchResults] Using local fallback for:", q);
   
   const indianCities = [
-    { name: 'Kolhapur', displayName: 'Kolhapur, Maharashtra, India', lat: 16.7050, lng: 73.7308 },
-    { name: 'Pune', displayName: 'Pune, Maharashtra, India', lat: 18.5204, lng: 73.8567 },
-    { name: 'Mumbai', displayName: 'Mumbai, Maharashtra, India', lat: 19.0760, lng: 72.8777 },
-    { name: 'Bangalore', displayName: 'Bangalore, Karnataka, India', lat: 12.9716, lng: 77.5946 },
-    { name: 'Delhi', displayName: 'Delhi, India', lat: 28.7041, lng: 77.1025 },
-    { name: 'Hyderabad', displayName: 'Hyderabad, Telangana, India', lat: 17.3850, lng: 78.4867 },
-    { name: 'Chennai', displayName: 'Chennai, Tamil Nadu, India', lat: 13.0827, lng: 80.2707 },
-    { name: 'Ahmedabad', displayName: 'Ahmedabad, Gujarat, India', lat: 23.0225, lng: 72.5714 },
-    { name: 'Jaipur', displayName: 'Jaipur, Rajasthan, India', lat: 26.9124, lng: 75.7873 },
-    { name: 'Lucknow', displayName: 'Lucknow, Uttar Pradesh, India', lat: 26.8467, lng: 80.9462 },
+    { name: 'Kolhapur', displayName: 'Kolhapur, Maharashtra, India', aliases: ['kolhapur', 'kholapur', 'kolhapur city'], lat: 16.7050, lng: 73.7308 },
+    { name: 'Pune', displayName: 'Pune, Maharashtra, India', aliases: ['pune', 'poona'], lat: 18.5204, lng: 73.8567 },
+    { name: 'Mumbai', displayName: 'Mumbai, Maharashtra, India', aliases: ['mumbai', 'bombay'], lat: 19.0760, lng: 72.8777 },
+    { name: 'Bangalore', displayName: 'Bangalore, Karnataka, India', aliases: ['bangalore', 'bengaluru'], lat: 12.9716, lng: 77.5946 },
+    { name: 'Delhi', displayName: 'Delhi, India', aliases: ['delhi', 'new delhi'], lat: 28.7041, lng: 77.1025 },
+    { name: 'Hyderabad', displayName: 'Hyderabad, Telangana, India', aliases: ['hyderabad'], lat: 17.3850, lng: 78.4867 },
+    { name: 'Chennai', displayName: 'Chennai, Tamil Nadu, India', aliases: ['chennai'], lat: 13.0827, lng: 80.2707 },
+    { name: 'Ahmedabad', displayName: 'Ahmedabad, Gujarat, India', aliases: ['ahmedabad'], lat: 23.0225, lng: 72.5714 },
+    { name: 'Jaipur', displayName: 'Jaipur, Rajasthan, India', aliases: ['jaipur'], lat: 26.9124, lng: 75.7873 },
+    { name: 'Lucknow', displayName: 'Lucknow, Uttar Pradesh, India', aliases: ['lucknow'], lat: 26.8467, lng: 80.9462 },
+    { name: 'Sangli', displayName: 'Sangli, Maharashtra, India', aliases: ['sangli'], lat: 16.8524, lng: 74.5815 },
+    { name: 'Ichalkaranji', displayName: 'Ichalkaranji, Maharashtra, India', aliases: ['ichalkaranji'], lat: 16.6987, lng: 74.4685 },
+    { name: 'Solapur', displayName: 'Solapur, Maharashtra, India', aliases: ['solapur'], lat: 17.6599, lng: 75.9064 },
+    { name: 'Nashik', displayName: 'Nashik, Maharashtra, India', aliases: ['nashik', 'nasik'], lat: 20.0110, lng: 73.7898 },
   ];
   
-  // Filter cities that match the query
-  const matches = indianCities.filter(city => 
-    city.name.toLowerCase().includes(q) || 
-    city.displayName.toLowerCase().includes(q)
-  );
+  // Filter cities that match the query across city name, display name, or aliases
+  const matches = indianCities.filter(city => {
+    const searchable = [city.name, city.displayName, ...(city.aliases || [])].join(" ").toLowerCase();
+    return searchable.includes(q);
+  });
   
   console.log("📍 [getLocalSearchResults] Found", matches.length, "local matches");
   

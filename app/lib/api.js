@@ -31,8 +31,9 @@ export async function submitUserReport(userId, reason, description) {
 // ============================================================
 
 const FALLBACK_API_URL = 'http://localhost:3002';
-const ACCESS_TOKEN_STORAGE_KEY = 'golo-access-token';
-const REFRESH_TOKEN_STORAGE_KEY = 'golo-refresh-token';
+// Canonical storage keys for auth tokens. Keep fallbacks for backward compatibility.
+const ACCESS_TOKEN_STORAGE_KEY = 'accessToken';
+const REFRESH_TOKEN_STORAGE_KEY = 'refreshToken';
 
 function normalizeBackendApiBaseUrl(rawValue, fallbackUrl = FALLBACK_API_URL) {
     const trimmedValue = String(rawValue || '').trim();
@@ -53,7 +54,16 @@ function normalizeBackendApiBaseUrl(rawValue, fallbackUrl = FALLBACK_API_URL) {
     return normalizedValue;
 }
 
-export const API_BASE_URL = normalizeBackendApiBaseUrl(process.env.NEXT_PUBLIC_API_URL);
+// In Next.js, `NEXT_PUBLIC_*` values are baked at build time for browser bundles.
+// If the value is missing in production we intentionally do NOT fall back to localhost,
+// because that will break for real users and hides misconfiguration during deploy.
+const apiBaseUrlFallback =
+    process.env.NODE_ENV === 'production' ? '' : FALLBACK_API_URL;
+
+export const API_BASE_URL = normalizeBackendApiBaseUrl(
+    process.env.NEXT_PUBLIC_API_URL,
+    apiBaseUrlFallback,
+);
 export const API_ORIGIN_URL = API_BASE_URL;
 // Keep the backend base URL as a plain origin so auth routes resolve to /users/*.
 const BASE_URL = API_BASE_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:3002');
@@ -69,8 +79,10 @@ export function getStoredAccessToken() {
         return '';
     }
 
+    // Read from canonical key first, then fall back to legacy keys for compatibility.
     return (
         localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY) ||
+        localStorage.getItem('golo-access-token') ||
         localStorage.getItem('accessToken') ||
         localStorage.getItem('authToken') ||
         ''
@@ -82,8 +94,10 @@ export function getStoredRefreshToken() {
         return '';
     }
 
+    // Read from canonical key first, then fall back to legacy key.
     return (
         localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY) ||
+        localStorage.getItem('golo-refresh-token') ||
         localStorage.getItem('refreshToken') ||
         ''
     );
@@ -118,8 +132,11 @@ export function clearStoredAuthTokens() {
         return;
     }
 
+    // Remove canonical and legacy keys to clean up any previous storage variants.
     localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
     localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+    localStorage.removeItem('golo-access-token');
+    localStorage.removeItem('golo-refresh-token');
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('authToken');
@@ -607,24 +624,40 @@ export async function submitBannerPromotionRequest(payload) {
 export async function submitOfferPromotionRequest(payload) {
     const enrichedPayload = { ...payload, promotionType: 'offer' };
 
+    // Primary: use the dedicated offers endpoint. Fallback to legacy banner
+    // promotions endpoint only if the primary route is unavailable (older backends).
     try {
-        const response = await apiClient('/banners/promotions/request', {
-            method: 'POST',
-            body: JSON.stringify(enrichedPayload),
-        });
-        rememberOfferPromotionId(getPromotionRowId(response?.data));
-        return response;
-    } catch (error) {
-        if (!isNonWhitelistedPayloadError(error)) {
-            throw error;
+        try {
+            const response = await apiClient('/offers/request', {
+                method: 'POST',
+                body: JSON.stringify(enrichedPayload),
+            });
+            rememberOfferPromotionId(getPromotionRowId(response?.data));
+            return response;
+        } catch (error) {
+            if (!isNonWhitelistedPayloadError(error)) {
+                throw error;
+            }
+
+            const response = await apiClient('/offers/request', {
+                method: 'POST',
+                body: JSON.stringify(buildLegacyPromotionPayload(enrichedPayload)),
+            });
+            rememberOfferPromotionId(getPromotionRowId(response?.data));
+            return response;
+        }
+    } catch (err) {
+        // If offers route truly doesn't exist (404), fall back to legacy banner promotions
+        if (err?.status === 404) {
+            const response = await apiClient('/banners/promotions/request', {
+                method: 'POST',
+                body: JSON.stringify(enrichedPayload),
+            });
+            rememberOfferPromotionId(getPromotionRowId(response?.data));
+            return response;
         }
 
-        const response = await apiClient('/banners/promotions/request', {
-            method: 'POST',
-            body: JSON.stringify(buildLegacyPromotionPayload(enrichedPayload)),
-        });
-        rememberOfferPromotionId(getPromotionRowId(response?.data));
-        return response;
+        throw err;
     }
 }
 
@@ -1523,12 +1556,25 @@ export async function updateMyBannerPromotion(promotionId, updateData) {
 }
 
 export async function updateMyOfferPromotion(promotionId, updateData) {
-    const response = await apiClient(`/banners/promotions/${promotionId}?type=offer`, {
-        method: 'PUT',
-        body: JSON.stringify(updateData),
-    });
-    rememberOfferPromotionId(promotionId);
-    return response;
+    try {
+        const response = await apiClient(`/offers/${promotionId}`, {
+            method: 'PUT',
+            body: JSON.stringify(updateData),
+        });
+        rememberOfferPromotionId(promotionId);
+        return response;
+    } catch (err) {
+        if (err?.status === 404) {
+            // Fallback for older backends
+            const response = await apiClient(`/banners/promotions/${promotionId}?type=offer`, {
+                method: 'PUT',
+                body: JSON.stringify(updateData),
+            });
+            rememberOfferPromotionId(promotionId);
+            return response;
+        }
+        throw err;
+    }
 }
 
 /**
@@ -1542,37 +1588,74 @@ export async function deleteMyBannerPromotion(promotionId) {
 }
 
 export async function deleteMyOfferPromotion(promotionId) {
-    const response = await apiClient(`/banners/promotions/${promotionId}?type=offer`, {
-        method: 'DELETE',
-    });
-    forgetOfferPromotionId(promotionId);
-    return response;
+    try {
+        const response = await apiClient(`/offers/${promotionId}`, {
+            method: 'DELETE',
+        });
+        forgetOfferPromotionId(promotionId);
+        return response;
+    } catch (err) {
+        if (err?.status === 404) {
+            const response = await apiClient(`/banners/promotions/${promotionId}?type=offer`, {
+                method: 'DELETE',
+            });
+            forgetOfferPromotionId(promotionId);
+            return response;
+        }
+        throw err;
+    }
 }
 
 /**
  * Save merchant offer template in backend cache (Redis)
  */
 export async function saveMyOfferTemplate(payload) {
-    return apiClient('/banners/promotions/template/save', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-    });
+    try {
+        return await apiClient('/offers/template/save', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        });
+    } catch (err) {
+        if (err?.status === 404) {
+            return apiClient('/banners/promotions/template/save', {
+                method: 'POST',
+                body: JSON.stringify(payload),
+            });
+        }
+        throw err;
+    }
 }
 
 /**
  * Get merchant offer template from backend cache (Redis)
  */
 export async function getMyOfferTemplate() {
-    return apiClient('/banners/promotions/template');
+    try {
+        return await apiClient('/offers/template');
+    } catch (err) {
+        if (err?.status === 404) {
+            return apiClient('/banners/promotions/template');
+        }
+        throw err;
+    }
 }
 
 /**
  * Clear merchant offer template from backend cache (Redis)
  */
 export async function clearMyOfferTemplate() {
-    return apiClient('/banners/promotions/template', {
-        method: 'DELETE',
-    });
+    try {
+        return await apiClient('/offers/template', {
+            method: 'DELETE',
+        });
+    } catch (err) {
+        if (err?.status === 404) {
+            return apiClient('/banners/promotions/template', {
+                method: 'DELETE',
+            });
+        }
+        throw err;
+    }
 }
 
 // ============================================================

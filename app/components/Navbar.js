@@ -48,6 +48,7 @@ function NavbarContent({
   const [unreadCount, setUnreadCount] = useState(0);
 
   const dropdownRef = useRef(null);
+  const mobileDropdownRef = useRef(null);
   const profileRef = useRef(null);
   const notifRef = useRef(null);
   const router = useRouter();
@@ -81,8 +82,9 @@ function NavbarContent({
   useEffect(() => {
     function handleClickOutside(event) {
       if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target)
+        (dropdownRef.current || mobileDropdownRef.current) &&
+        !dropdownRef.current?.contains(event.target) &&
+        !mobileDropdownRef.current?.contains(event.target)
       ) {
         setShowSuggestions(false);
       }
@@ -266,13 +268,13 @@ function NavbarContent({
 
   return (
     <>
-      <header className="sticky top-0 z-[9999] h-16 bg-[#efb02e] border-b border-[#d7a02a] px-8 shadow-sm">
-        <div className="w-full h-full flex items-center justify-between">
+      <header className="sticky top-0 z-[9999] h-auto min-h-16 bg-[#efb02e] border-b border-[#d7a02a] px-4 shadow-sm md:h-16 md:px-8">
+        <div className="w-full h-16 flex items-center justify-between">
 
         {/* LOGO */}
         <Link
           href={logoHref}
-          className="flex items-center gap-3 cursor-pointer min-w-[180px]"
+          className="flex min-w-0 items-center gap-2 cursor-pointer sm:gap-3 md:min-w-[180px]"
         >
           <div
             className="w-9 h-9 bg-white rounded-xl flex items-center justify-center shadow font-bold"
@@ -280,7 +282,7 @@ function NavbarContent({
           >
             G
           </div>
-          <span className="text-xl font-semibold tracking-wide text-white">
+          <span className="text-lg font-semibold tracking-wide text-white sm:text-xl">
             GOLO
           </span>
         </Link>
@@ -403,7 +405,7 @@ function NavbarContent({
         </div>
 
         {/* RIGHT SIDE */}
-        <div className="flex items-center gap-8 min-w-[260px] justify-end">
+        <div className="flex min-w-0 items-center justify-end gap-3 md:min-w-[260px] md:gap-8">
 
           <nav className="hidden md:flex gap-6 text-sm font-semibold text-white">
             <Link href={homeNavHref} className="hover:opacity-80 transition">
@@ -443,7 +445,7 @@ function NavbarContent({
                 </button>
 
                 {showNotifications && (
-                  <div className="absolute top-12 right-0 w-80 bg-white rounded-xl shadow-lg border border-gray-200 z-[9999] overflow-hidden">
+                  <div className="absolute top-12 right-0 w-[calc(100vw-2rem)] max-w-80 bg-white rounded-xl shadow-lg border border-gray-200 z-[9999] overflow-hidden">
                     <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                       <p className="text-sm font-semibold text-gray-800">Notifications</p>
                       {unreadCount > 0 && (
@@ -508,12 +510,12 @@ function NavbarContent({
                     <User size={18} />
                   )}
                 </div>
-                {(isChojaSurface || isGolocalSurface) && <ChevronDown size={14} className="text-gray-500" />}
+                <ChevronDown size={14} className="hidden text-gray-500 sm:block" />
               </div>
 
               {/* Profile Dropdown */}
-              {isChojaSurface && showProfileMenu && (
-                <div className="absolute top-12 right-0 w-52 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-[9999]">
+              {showProfileMenu && !isGolocalSurface && (
+                <div className="absolute top-12 right-0 w-[calc(100vw-2rem)] max-w-52 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-[9999]">
                   <div className="px-4 py-2 border-b border-gray-100">
                     <p className="text-sm font-semibold text-gray-800">{user?.name}</p>
                     <p className="text-xs text-gray-500">{user?.email}</p>
@@ -561,7 +563,7 @@ function NavbarContent({
               )}
 
               {isGolocalSurface && showProfileMenu && (
-                <div className="absolute top-12 right-0 w-56 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-[9999]">
+                <div className="absolute top-12 right-0 w-[calc(100vw-2rem)] max-w-56 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-[9999]">
                   <Link
                     href="/profile"
                     onClick={() => setShowProfileMenu(false)}
@@ -620,6 +622,132 @@ function NavbarContent({
           )}
         </div>
         </div>
+        <div className="-mx-4 border-t border-[#d7a02a]/40 px-4 pb-2 md:hidden">
+          <div className="grid grid-cols-[1fr_0.9fr_auto] gap-2">
+            <div className="flex min-w-0 items-center rounded-full bg-white px-3 py-2 shadow-sm">
+              <Search size={15} className="mr-2 shrink-0 text-[#157A4F]" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                onKeyDown={handleSearch}
+                onFocus={() => {
+                  if (!isAuthenticated) setShowAuthPrompt(true);
+                }}
+                placeholder="Search"
+                className="min-w-0 flex-1 bg-transparent text-xs text-black outline-none placeholder-gray-500"
+                readOnly={!isAuthenticated}
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => handleSearchChange("")}
+                  className="ml-1 text-gray-500"
+                  aria-label="Clear search"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+
+            <div className="relative min-w-0" ref={mobileDropdownRef}>
+              <div className="flex min-w-0 items-center rounded-full bg-white px-3 py-2 shadow-sm">
+                <MapPin size={15} className="mr-2 shrink-0 text-[#157A4F]" />
+                <input
+                  type="text"
+                  value={location}
+                  onChange={(e) => handleLocationChange(e.target.value)}
+                  onKeyDown={handleSearch}
+                  onFocus={() => {
+                    if (!isAuthenticated) {
+                      setShowAuthPrompt(true);
+                      return;
+                    }
+                    setShowSuggestions(true);
+                  }}
+                  placeholder="Location"
+                  className="min-w-0 flex-1 bg-transparent text-xs text-black outline-none placeholder-gray-500"
+                  readOnly={!isAuthenticated}
+                />
+                {location && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLocation("");
+                      setShowSuggestions(false);
+                      runSearch(searchQuery, "");
+                    }}
+                    className="ml-1 text-gray-500"
+                    aria-label="Clear location"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+
+              {showSuggestions && (
+                <div className="absolute top-11 right-0 z-[9999] w-[min(90vw,320px)] rounded-xl border border-gray-200 bg-white py-2 shadow-lg">
+                  {locationLoading ? (
+                    <div className="px-4 py-3 text-sm text-gray-500">Searching cities...</div>
+                  ) : locationSuggestions.length > 0 ? (
+                    locationSuggestions.slice(0, 6).map((place, index) => (
+                      <button
+                        type="button"
+                        key={`${place.displayName || place.name || index}-${index}-mobile`}
+                        onClick={() => {
+                          const nextLocation = place.displayName || place.address || place.name || place.city || "";
+                          const nextCoordinates = place.coordinates || null;
+                          setLocation(nextLocation);
+                          setShowSuggestions(false);
+                          runSearch(searchQuery, nextLocation, nextCoordinates);
+                        }}
+                        className="flex w-full items-start gap-3 px-4 py-3 text-left transition hover:bg-gray-100"
+                      >
+                        <MapPin size={16} className="mt-0.5 shrink-0 text-[#157A4F]" />
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-medium text-black">
+                            {place.name || place.city || place.displayName?.split(",")[0] || "Location"}
+                          </span>
+                          <span className="block truncate text-xs text-gray-500">
+                            {place.displayName || place.address || place.state || "India"}
+                          </span>
+                        </span>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-4 py-3 text-sm text-gray-500">No city matches found.</div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                runSearch();
+                setShowSuggestions(false);
+              }}
+              className="rounded-full bg-[#157A4F] px-3 text-xs font-bold text-white shadow-sm"
+            >
+              Go
+            </button>
+          </div>
+        </div>
+        <nav className="-mx-4 flex gap-2 overflow-x-auto border-t border-[#d7a02a]/40 px-4 pb-2 text-[12px] font-semibold text-white md:hidden">
+          <Link href={homeNavHref} className="shrink-0 rounded-full bg-white/15 px-3 py-1.5">
+            Home
+          </Link>
+          <Link href={primaryNavHref} onClick={requireAuth()} className="shrink-0 rounded-full bg-white/15 px-3 py-1.5">
+            {primaryNavLabel}
+          </Link>
+          <Link
+            href={secondaryNavHref}
+            onClick={useGolocalHomeNav ? undefined : requireAuth()}
+            className="shrink-0 rounded-full bg-white/15 px-3 py-1.5"
+          >
+            {secondaryNavLabel}
+          </Link>
+        </nav>
       </header>
 
       <AuthRequiredModal
@@ -637,7 +765,7 @@ export default function Navbar(props) {
   return (
     <Suspense fallback={
       <header className="theme-footer shadow-sm sticky top-0 z-[9999] border-b border-gray-200 h-16">
-        <div className="w-full px-8 h-16 bg-gray-50 animate-pulse" />
+        <div className="w-full px-4 md:px-8 h-16 bg-gray-50 animate-pulse" />
       </header>
     }>
       <NavbarContent {...props} />

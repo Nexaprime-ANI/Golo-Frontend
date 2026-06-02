@@ -1371,3 +1371,180 @@ body {
 }
 
 .separator { opacity: 0.3; }
+
+@media (max-width: 1023px) {
+  .merchant-layout footer:not(.merchant-shared-mobile-footer) {
+    display: none !important;
+  }
+
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .golo-category-shell {
+    min-height: 58px !important;
+    padding: 8px 12px !important;
+    gap: 8px !important;
+  }
+
+  .golo-category-row {
+    display: flex !important;
+    grid-template-columns: none !important;
+    justify-content: flex-start !important;
+    overflow-x: auto !important;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+  }
+
+  .golo-category-row::-webkit-scrollbar,
+  .choja-category-row::-webkit-scrollbar {
+    display: none;
+  }
+
+  .golo-category-row > div {
+    flex: 0 0 auto !important;
+    min-width: auto !important;
+  }
+
+  .golo-category-pill {
+    width: auto !important;
+    max-width: 190px !important;
+    padding: 9px 14px !important;
+    scroll-snap-align: start;
+  }
+
+  .choja-category-row {
+    overflow-x: auto !important;
+    justify-content: flex-start !important;
+    scrollbar-width: none;
+  }
+
+  .golo-category-modal {
+    width: calc(100vw - 24px) !important;
+    max-height: 82vh !important;
+    padding: 20px !important;
+    border-radius: 18px !important;
+  }
+
+  main,
+  section,
+  article,
+  aside {
+    min-width: 0;
+  }
+
+  table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    border-spacing: 0;
+  }
+
+  table th,
+  table td {
+    white-space: nowrap;
+  }
+
+  .rounded-\[32px\] {
+    border-radius: 18px !important;
+  }
+
+  .login-page-wrapper {
+    padding: 24px 16px !important;
+    overflow-x: hidden;
+  }
+
+  .login-content-grid {
+    grid-template-columns: 1fr !important;
+    gap: 28px;
+  }
+
+  .testimonial-section,
+  .dot-pattern,
+  .dot-pattern-fixed,
+  .card-bg-decoration {
+    display: none !important;
+  }
+
+  .login-right {
+    justify-content: center !important;
+    width: 100%;
+  }
+
+  .login-card,
+  .center-card,
+  .otp-card,
+  .check-email-card {
+    width: 100% !important;
+    max-width: 480px !important;
+    padding: 28px 20px !important;
+    border-radius: 22px !important;
+  }
+}
+
+@media (max-width: 767px) {
+  .px-8 {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+
+  .py-6 {
+    padding-top: 1rem !important;
+    padding-bottom: 1rem !important;
+  }
+
+  h1.text-\[42px\],
+  .text-\[42px\] {
+    font-size: 30px !important;
+    line-height: 1.08 !important;
+  }
+
+  h1.text-\[38px\],
+  .text-\[38px\],
+  h1.text-\[36px\],
+  .text-\[36px\],
+  h1.text-\[35px\],
+  .text-\[35px\] {
+    font-size: 28px !important;
+    line-height: 1.12 !important;
+  }
+
+  .text-\[34px\] {
+    font-size: 26px !important;
+    line-height: 1.12 !important;
+  }
+
+  .text-\[31px\],
+  .text-\[30px\] {
+    font-size: 24px !important;
+    line-height: 1.15 !important;
+  }
+
+  .text-\[28px\] {
+    font-size: 22px !important;
+    line-height: 1.2 !important;
+  }
+
+  .grid-cols-3:not(.sm\:grid-cols-3):not(.md\:grid-cols-3):not(.lg\:grid-cols-3):not(.xl\:grid-cols-3),
+  .grid-cols-4:not(.sm\:grid-cols-4):not(.md\:grid-cols-4):not(.lg\:grid-cols-4):not(.xl\:grid-cols-4),
+  .grid-cols-5:not(.sm\:grid-cols-5):not(.md\:grid-cols-5):not(.lg\:grid-cols-5):not(.xl\:grid-cols-5) {
+    grid-template-columns: 1fr !important;
+  }
+
+  .mobile-stats-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .auth-footer-bottom {
+    position: static !important;
+    margin-top: 24px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .social-buttons {
+    flex-direction: column;
+  }
+}

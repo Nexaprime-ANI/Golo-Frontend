@@ -258,13 +258,13 @@ function SectionCarousel({ title, items, onItemClick }) {
   const scrollByAmount = (direction) => {
     const element = scrollRef.current;
     if (!element) return;
-    element.scrollBy({ left: direction * 320, behavior: "smooth" });
+    element.scrollBy({ left: direction * element.clientWidth, behavior: "smooth" });
   };
 
   return (
-    <section className="border-t border-[#bcc4cf] bg-[#f4f4f4] py-10">
+    <section className="border-t border-[#bcc4cf] bg-[#f4f4f4] py-7 sm:py-10">
       <div className="mx-auto max-w-[1260px] px-4 lg:px-6">
-        <h2 className="mb-5 text-[28px] font-semibold tracking-[-0.02em] text-[#343943]">
+        <h2 className="mb-5 text-[22px] font-semibold text-[#343943] sm:text-[28px]">
           {title}
         </h2>
 
@@ -273,7 +273,7 @@ function SectionCarousel({ title, items, onItemClick }) {
             <button
               type="button"
               onClick={() => scrollByAmount(-1)}
-              className="absolute -left-5 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white text-[#1f2937] shadow-[0_10px_30px_rgba(15,23,42,0.12)]"
+              className="absolute left-1 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/95 text-[#1f2937] shadow-[0_10px_30px_rgba(15,23,42,0.18)] sm:-left-5 sm:h-11 sm:w-11"
               aria-label={`Scroll ${title} left`}
             >
               <ChevronLeft size={22} />
@@ -284,7 +284,7 @@ function SectionCarousel({ title, items, onItemClick }) {
             <button
               type="button"
               onClick={() => scrollByAmount(1)}
-              className="absolute -right-5 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white text-[#1f2937] shadow-[0_10px_30px_rgba(15,23,42,0.12)]"
+              className="absolute right-1 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/95 text-[#1f2937] shadow-[0_10px_30px_rgba(15,23,42,0.18)] sm:-right-5 sm:h-11 sm:w-11"
               aria-label={`Scroll ${title} right`}
             >
               <ChevronRight size={22} />
@@ -293,15 +293,15 @@ function SectionCarousel({ title, items, onItemClick }) {
 
           <div
             ref={scrollRef}
-            className="flex gap-4 overflow-x-auto pb-2"
+            className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2"
             style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
           >
             {items.map((item) => (
               <article
                 key={item.id}
-                className="min-w-[280px] max-w-[280px] overflow-hidden rounded-[14px] border border-[#e2e8f0] bg-white shadow-[0_2px_12px_rgba(15,23,42,0.05)]"
+                className="w-full min-w-full max-w-full flex-none snap-start overflow-hidden rounded-[14px] border border-[#e2e8f0] bg-white shadow-[0_2px_12px_rgba(15,23,42,0.05)] sm:w-auto sm:min-w-[280px] sm:max-w-[280px]"
               >
-                <div className="relative h-[190px] w-full overflow-hidden">
+                <div className="relative h-[170px] w-full overflow-hidden sm:h-[190px]">
                   <Image
                     src={item.image}
                     alt={item.title}
@@ -316,11 +316,11 @@ function SectionCarousel({ title, items, onItemClick }) {
                   )}
                 </div>
 
-                <div className="flex min-h-[170px] flex-col bg-[#ffe1a3] p-4">
-                  <h3 className="min-h-[56px] text-[18px] font-semibold leading-7 text-[#30343c]">
+                <div className="flex min-h-[145px] flex-col bg-[#ffe1a3] p-4 sm:min-h-[170px]">
+                  <h3 className="line-clamp-2 min-h-[48px] text-[17px] font-semibold leading-6 text-[#30343c] sm:min-h-[56px] sm:text-[18px] sm:leading-7">
                     {item.title}
                   </h3>
-                  <p className="mt-2 min-h-[48px] text-[12px] leading-4 text-[#7c8492]">
+                  <p className="mt-2 line-clamp-2 min-h-[40px] text-[12px] leading-5 text-[#7c8492] sm:min-h-[48px]">
                     {item.subtitle}
                   </p>
                   <button

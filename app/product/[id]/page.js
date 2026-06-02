@@ -254,6 +254,13 @@ export default function ProductDetails({ params }) {
 		return true;
 	};
 
+	const normalizeNestedData = (value) => {
+		if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+		return Object.fromEntries(
+			Object.entries(value).filter(([_, nestedValue]) => nestedValue !== undefined && nestedValue !== null)
+		);
+	};
+
 	const basicInformationEntries = [
 		["Title", ad?.title],
 		["Description", ad?.description],
@@ -282,16 +289,16 @@ export default function ProductDetails({ params }) {
 		ad?.greetingsData,
 		ad?.otherData,
 	].reduce((acc, item) => {
-		if (item && typeof item === "object" && !Array.isArray(item)) {
-			return { ...acc, ...item };
-		}
-		return acc;
+		const normalizedItem = normalizeNestedData(item);
+		return { ...acc, ...normalizedItem };
 	}, {});
 
 	const resolvedDisplayPrice = (() => {
 		const candidates = [
 			ad?.price,
 			categoryDataSource?.price,
+			categoryDataSource?.sellingPrice,
+			categoryDataSource?.mobilePrice,
 			categoryDataSource?.rent,
 			categoryDataSource?.askingPrice,
 			categoryDataSource?.rentAmount,

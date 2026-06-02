@@ -86,6 +86,19 @@ function formatDateForDisplay(dateValue) {
     timeZone: "UTC",
   });
 }
+
+function getOfferDisplayStatus(offer) {
+  const status = String(offer?.status || "").toLowerCase();
+  if (status === "expired") return "expired";
+
+  const endDateValue = toDateInputValue(offer?.endDate);
+  if (!endDateValue) return "active";
+
+  const endDate = new Date(`${endDateValue}T23:59:59Z`);
+  if (Number.isNaN(endDate.getTime())) return "active";
+
+  return endDate.getTime() < Date.now() ? "expired" : "active";
+}
 // Customer contact removed from offers list (moved to orders view)
 
 function normalizeSelectedProducts(selectedProducts = []) {
@@ -159,7 +172,7 @@ export default function MerchantOffersPage() {
     );
   }, [offers, query]);
 
-  const activeCount = filteredOffers.filter((offer) => offer.status === "active").length;
+  const activeCount = filteredOffers.filter((offer) => getOfferDisplayStatus(offer) === "active").length;
   const totalRevenue = filteredOffers.reduce((sum, offer) => sum + Number(offer.totalPrice || 0), 0);
 
   const resetForm = () => {
@@ -317,27 +330,27 @@ export default function MerchantOffersPage() {
             </p>
           </section>
 
-          <section className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            <div className="rounded-[12px] border border-[#e2e2e2] bg-white px-4 py-4 flex items-center justify-between">
+          <section className="flex gap-2 md:grid md:grid-cols-3 md:gap-5">
+            <div className="flex-1 rounded-[12px] border border-[#e2e2e2] bg-white px-2 py-3 flex min-w-0 items-center justify-between md:px-4 md:py-4">
               <div>
-                <p className="text-[11px] text-[#666]">Total Offers</p>
-                <p className="text-[34px] font-semibold leading-none mt-1">{filteredOffers.length}</p>
+                <p className="text-[9px] text-[#666] md:text-[11px]">Total Offers</p>
+                <p className="text-[22px] font-semibold leading-none mt-1 md:text-[34px]">{filteredOffers.length}</p>
               </div>
               <div className="h-10 w-10 rounded-full bg-[#f8eff2] text-[#f67da7] flex items-center justify-center text-[18px]">✦</div>
             </div>
 
-            <div className="rounded-[12px] border border-[#e2e2e2] bg-white px-4 py-4 flex items-center justify-between">
+            <div className="flex-1 rounded-[12px] border border-[#e2e2e2] bg-white px-2 py-3 flex min-w-0 items-center justify-between md:px-4 md:py-4">
               <div>
-                <p className="text-[11px] text-[#666]">Active Offers</p>
-                <p className="text-[34px] font-semibold leading-none mt-1">{activeCount}</p>
+                <p className="text-[9px] text-[#666] md:text-[11px]">Active Offers</p>
+                <p className="text-[22px] font-semibold leading-none mt-1 md:text-[34px]">{activeCount}</p>
               </div>
               <div className="h-10 w-10 rounded-full bg-[#f4f4f1] text-[#2cb56e] flex items-center justify-center">⬡</div>
             </div>
 
-            <div className="rounded-[12px] border border-[#e2e2e2] bg-white px-4 py-4 flex items-center justify-between">
+            <div className="flex-1 rounded-[12px] border border-[#e2e2e2] bg-white px-2 py-3 flex min-w-0 items-center justify-between md:px-4 md:py-4">
               <div>
-                <p className="text-[11px] text-[#666]">Offer Value</p>
-                <p className="text-[34px] font-semibold leading-none mt-1">₹{totalRevenue.toLocaleString()}</p>
+                <p className="text-[9px] text-[#666] md:text-[11px]">Offer Value</p>
+                <p className="text-[16px] font-semibold leading-none mt-1 md:text-[34px]">₹{totalRevenue.toLocaleString()}</p>
               </div>
               <div className="h-10 w-10 rounded-full bg-[#f4f4f1] text-[#efb02e] flex items-center justify-center text-[20px]">₹</div>
             </div>
@@ -486,10 +499,10 @@ export default function MerchantOffersPage() {
                       <td className="px-4 py-3 font-semibold text-[#2a2a2a]">{row.title}</td>
                       <td className="px-4 py-3 text-[#2c2c2c]">{formatDateForDisplay(row.createdAt)}</td>
                       <td className="px-4 py-3">
-                        {row.status === "active" ? (
+                        {getOfferDisplayStatus(row) === "active" ? (
                           <span className="inline-flex rounded-full bg-[#e7f7ec] px-2 py-0.5 text-[10px] font-semibold text-[#2f9e58]">Active</span>
                         ) : (
-                          <span className="inline-flex rounded-full bg-[#eef0f3] px-2 py-0.5 text-[10px] font-semibold text-[#4a4f57]">{String(row.status || "unknown")}</span>
+                          <span className="inline-flex rounded-full bg-[#fee2e2] px-2 py-0.5 text-[10px] font-semibold text-[#dc2626]">Expired</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-[#2c2c2c]">{formatDateForDisplay(row.endDate)}</td>
@@ -509,22 +522,22 @@ export default function MerchantOffersPage() {
         </div>
       </main>
 
-      <footer className="bg-[#f0b330] text-[#1b1b1b] px-4 lg:px-8 py-7 mt-6">
-        <div className="max-w-[1500px] mx-auto flex flex-col lg:flex-row gap-8 lg:gap-12 items-start justify-between">
+      <footer className="bg-[#e8ad2f] border-t border-[#d49b22] text-[#1b1b1b] px-4 py-4 lg:bg-[#f0b330] lg:px-8 lg:py-7 mt-4 lg:mt-6">
+        <div className="max-w-[1500px] mx-auto flex flex-col lg:flex-row gap-4 lg:gap-12 items-start justify-between">
           <div className="max-w-[240px]">
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2 mb-2 lg:mb-4">
               <div className="w-8 h-8 bg-white rounded-sm flex items-center justify-center font-bold text-[#157a4f]">G</div>
               <span className="text-[18px] font-semibold text-[#157a4f]">GOLO</span>
             </div>
             <p className="text-[10px] leading-[1.35] text-[#fff8de] max-w-[150px]">
-              The all-in-one management platform for modern businesses. Empowering growth through analytics and intuitive product management.
+              The all-in-one management platform for modern businesses.
             </p>
           </div>
 
-          <div className="grid grid-cols-3 gap-14 lg:gap-20 text-[10px] text-[#6b520f]">
+          <div className="grid grid-cols-3 gap-6 lg:gap-20 text-[10px] text-[#6b520f]">
             <div>
-              <p className="font-semibold text-[#1b1b1b] mb-3">Links</p>
-              <ul className="space-y-2">
+              <p className="font-semibold text-[#1b1b1b] mb-2 lg:mb-3">Links</p>
+              <ul className="space-y-1 lg:space-y-2">
                 <li>Overview</li>
                 <li>Inventory</li>
                 <li>Posts</li>
@@ -532,15 +545,15 @@ export default function MerchantOffersPage() {
               </ul>
             </div>
             <div>
-              <p className="font-semibold text-[#1b1b1b] mb-3">&nbsp;</p>
-              <ul className="space-y-2">
+              <p className="font-semibold text-[#1b1b1b] mb-2 lg:mb-3">&nbsp;</p>
+              <ul className="space-y-1 lg:space-y-2">
                 <li>Analytics</li>
                 <li>Contact</li>
               </ul>
             </div>
             <div>
-              <p className="font-semibold text-[#1b1b1b] mb-3">Support</p>
-              <ul className="space-y-2">
+              <p className="font-semibold text-[#1b1b1b] mb-2 lg:mb-3">Support</p>
+              <ul className="space-y-1 lg:space-y-2">
                 <li>Help Center</li>
                 <li>Security</li>
                 <li>Terms of Service</li>
@@ -548,7 +561,7 @@ export default function MerchantOffersPage() {
             </div>
           </div>
 
-          <div className="flex gap-4 mt-auto lg:pb-2 text-[#1877f2]">
+          <div className="flex gap-3 mt-auto lg:gap-4 lg:pb-2 text-[#1877f2]">
             <span className="h-5 w-5 rounded-full bg-[#f3ba3b] flex items-center justify-center text-[#1877f2] text-[10px] font-bold">f</span>
             <span className="h-5 w-5 rounded-[2px] bg-[#f3ba3b] flex items-center justify-center text-[#0a66c2] text-[9px] font-bold">in</span>
             <span className="h-5 w-5 rounded-full bg-[#f3ba3b] flex items-center justify-center text-[#e1306c] text-[10px] font-bold">ig</span>
@@ -556,7 +569,7 @@ export default function MerchantOffersPage() {
           </div>
         </div>
 
-        <div className="max-w-[1500px] mx-auto mt-6 flex items-center justify-between text-[9px] text-[#5f4710]">
+        <div className="max-w-[1500px] mx-auto mt-3 lg:mt-6 flex items-center justify-between text-[9px] text-[#5f4710]">
           <p>© 2026 GOLO Dashboard. All rights reserved.</p>
           <p>Made with ♥ by V</p>
         </div>

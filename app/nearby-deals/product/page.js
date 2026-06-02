@@ -21,12 +21,35 @@ import {
   getMerchantProductById,
   getNearbyOffers,
   getPublicMerchantProductById,
-  getPublicMerchantProducts,
   getPublicMerchantProfile,
   toggleWishlist,
   getWishlistIds,
   getAdWishlistCount,
 } from "../../lib/api";
+
+function isLocalImageUri(src) {
+  return typeof src === "string" && (
+    src.startsWith("file:") || src.startsWith("blob:") || src.startsWith("data:")
+  );
+}
+
+function SafeImage({ src, alt = "", width, height, className = "", ...rest }) {
+  const safeSrc = src || "/images/place2.avif";
+  if (isLocalImageUri(safeSrc)) {
+    return <img src={safeSrc} alt={alt} className={className} {...rest} />;
+  }
+
+  return (
+    <Image
+      src={safeSrc}
+      alt={alt}
+      width={width}
+      height={height}
+      className={className}
+      {...rest}
+    />
+  );
+}
 
 export default function ProductDetailPage() {
   return (
@@ -113,6 +136,16 @@ function ProductDetailContent() {
   const [wishlistCount, setWishlistCount] = useState(null);
   const [isOpeningOffer, setIsOpeningOffer] = useState(false);
 
+  const normalizeId = (value) => String(value || "").trim();
+  const getMerchantLookupId = (sourceProduct) =>
+    normalizeId(
+      sourceProduct?.merchantId ||
+        sourceProduct?.merchant?.merchantId ||
+        sourceProduct?.merchant?.userId ||
+        sourceProduct?.merchant?._id ||
+        sourceProduct?.merchant?.id
+    );
+
   useEffect(() => {
     if (!productId) {
       setError("Product ID is missing");
@@ -131,9 +164,9 @@ function ProductDetailContent() {
         let gotLiveData = false;
 
         try {
-          const productRes = await getMerchantProductById(productId);
-          if (productRes?.data) {
-            productData = productRes.data;
+          const publicProductRes = await getPublicMerchantProductById(productId);
+          if (publicProductRes?.data) {
+            productData = publicProductRes.data;
             gotLiveData = true;
           }
         } catch {
@@ -142,36 +175,11 @@ function ProductDetailContent() {
 
         if (!productData) {
           try {
-            const publicProductRes = await getPublicMerchantProductById(productId);
-            if (publicProductRes?.data) {
-              productData = publicProductRes.data;
+            const productRes = await getMerchantProductById(productId);
+            if (productRes?.data) {
+              productData = productRes.data;
               gotLiveData = true;
             }
-          } catch {
-            productData = null;
-          }
-        }
-
-        if (!productData && merchantId) {
-          try {
-            const publicRes = await getPublicMerchantProducts(merchantId, {
-              page: 1,
-              limit: 200,
-            });
-            const rows = Array.isArray(publicRes?.data?.products)
-              ? publicRes.data.products
-              : Array.isArray(publicRes?.data)
-              ? publicRes.data
-              : Array.isArray(publicRes?.data?.rows)
-              ? publicRes.data.rows
-              : Array.isArray(publicRes?.rows)
-              ? publicRes.rows
-              : [];
-            productData = rows.find((item) => {
-              const id = String(item?._id || item?.id || item?.productId || "");
-              return id === String(productId);
-            }) || null;
-            if (productData) gotLiveData = true;
           } catch {
             productData = null;
           }
@@ -221,7 +229,7 @@ function ProductDetailContent() {
     let cancelled = false;
 
     async function fetchMerchantData() {
-      const merchantId = product?.merchantId;
+      const merchantId = getMerchantLookupId(product);
       if (!merchantId) {
         setMerchant(null);
         return;
@@ -242,7 +250,7 @@ function ProductDetailContent() {
     return () => {
       cancelled = true;
     };
-  }, [product?.merchantId]);
+  }, [product]);
 
   // Wishlist: fetch wishlist ids and wishlist count when product loads or auth changes
   useEffect(() => {
@@ -350,19 +358,47 @@ function ProductDetailContent() {
       })
     : null;
 
+  const merchantProfile = merchant?.merchantProfile || merchant?.profile || {};
+  const merchantDisplayName =
+    merchant?.storeName ||
+    merchantProfile?.storeName ||
+    merchant?.name ||
+    product?.merchantName ||
+    "Merchant";
+  const merchantPhoto =
+    merchant?.profilePhoto ||
+    merchantProfile?.profilePhoto ||
+    merchant?.shopPhoto ||
+    merchantProfile?.shopPhoto ||
+    "/images/place2.avif";
+  const merchantBio =
+    merchant?.bio ||
+    merchantProfile?.bio ||
+    merchant?.storeSubCategory ||
+    merchantProfile?.storeSubCategory ||
+    "";
+  const merchantAddress =
+    merchant?.storeLocation ||
+    merchantProfile?.storeLocation ||
+    merchantProfile?.address ||
+    "";
+  const merchantPhone =
+    merchant?.contactNumber ||
+    merchantProfile?.contactNumber ||
+    merchantProfile?.phone ||
+    "";
   const merchantRating = Number(
-    merchant?.rating ?? merchant?.averageRating ?? merchant?.profile?.rating ?? 0
+    merchant?.rating ?? merchant?.averageRating ?? merchantProfile?.rating ?? 0
   );
   const merchantReviewCount = Number(
-    merchant?.reviewCount ?? merchant?.totalReviews ?? merchant?.profile?.reviewCount ?? 0
+    merchant?.reviewCount ?? merchant?.totalReviews ?? merchantProfile?.reviewCount ?? 0
   );
   const merchantStoreId = String(
-    merchant?._id ||
-      merchant?.id ||
+    merchant?.userId ||
       merchant?.merchantId ||
+      product?.merchant?.userId ||
+      product?.merchant?.merchantId ||
       product?.merchantId ||
-      product?.merchant?._id ||
-      product?.merchant?.id ||
       ""
   ).trim();
   const resolvedProductId = String(
@@ -559,7 +595,7 @@ function ProductDetailContent() {
             <div className="flex flex-col">
               <div className="flex items-start justify-between gap-3 mb-3">
                 <h1 className="text-2xl lg:text-3xl font-bold text-[#1b1f24] leading-tight">{productName}</h1>
-                <div className="flex gap-2">
+                <div className="flex shrink-0 gap-2">
                   <button onClick={handleShare} className="p-2 rounded-full hover:bg-[#f0f0f0]" title="Share">
                     <Share2 size={20} className="text-[#666]" />
                   </button>
@@ -580,7 +616,7 @@ function ProductDetailContent() {
               {refreshedAt && <p className="text-xs text-[#6b7280] mb-5">Live data refreshed at {refreshedAt}</p>}
 
               <div className="bg-[#fef5e7] rounded-xl p-4 mb-6">
-                <div className="flex items-center gap-3 mb-3">
+                <div className="flex flex-wrap items-center gap-3 mb-3">
                   <span className="text-3xl lg:text-4xl font-bold text-[#e7a91d]">Rs.{productPrice.toLocaleString("en-IN")}</span>
                   {originalPrice > 0 && originalPrice > productPrice && (
                     <>
@@ -613,7 +649,7 @@ function ProductDetailContent() {
 
               <div className="text-xs text-[#666] space-y-1">
                 <p>• Product ID: {product?._id || product?.productId || product?.id || "-"}</p>
-                <p>• Merchant: {merchant?.name || merchant?.merchantProfile?.storeName || product?.merchantName || "Unavailable"}</p>
+                <p>• Merchant: {merchantDisplayName || "Unavailable"}</p>
                 {product?.offerPrice && <p>• Discounted pricing available</p>}
               </div>
             </div>
@@ -621,23 +657,23 @@ function ProductDetailContent() {
         </section>
 
         {merchant && (
-          <section className="bg-white rounded-2xl p-6 mb-8">
+          <section className="bg-white rounded-2xl p-4 sm:p-6 mb-8">
             <h2 className="text-2xl font-bold text-[#1f2329] mb-6">About the Merchant</h2>
             <div className="grid lg:grid-cols-[1fr_300px] gap-6">
               <div>
-                <div className="flex items-center gap-4 mb-4">
+                <div className="flex items-start gap-4 mb-4">
                   <div className="w-16 h-16 rounded-full overflow-hidden bg-[#f0f0f0]">
-                    <Image
-                      src={merchant?.profilePhoto || "/images/place2.avif"}
-                      alt={merchant?.name || "Merchant"}
+                    <SafeImage
+                      src={merchantPhoto}
+                      alt={merchantDisplayName}
                       width={64}
                       height={64}
                       className="w-full h-full object-cover"
                     />
                   </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-[#1f2329]">{merchant?.name || "Merchant"}</h3>
-                    <div className="flex items-center gap-2 mt-1">
+                  <div className="min-w-0">
+                    <h3 className="text-xl font-bold text-[#1f2329]">{merchantDisplayName}</h3>
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
                       <div className="flex gap-1">
                         {[...Array(5)].map((_, i) => (
                           <Star
@@ -657,19 +693,19 @@ function ProductDetailContent() {
                   </div>
                 </div>
 
-                {merchant?.profile?.bio && <p className="text-sm text-[#666] leading-relaxed mb-4">{merchant.profile.bio}</p>}
+                {merchantBio && <p className="text-sm text-[#666] leading-relaxed mb-4">{merchantBio}</p>}
 
                 <div className="space-y-2 text-sm">
-                  {merchant?.profile?.address && (
+                  {merchantAddress && (
                     <div className="flex items-center gap-2">
                       <MapPin size={16} className="text-[#157a4f]" />
-                      <span className="text-[#666]">{merchant.profile.address}</span>
+                      <span className="text-[#666]">{merchantAddress}</span>
                     </div>
                   )}
-                  {merchant?.profile?.phone && (
+                  {merchantPhone && (
                     <div className="flex items-center gap-2">
                       <Phone size={16} className="text-[#157a4f]" />
-                      <span className="text-[#666]">{merchant.profile.phone}</span>
+                      <span className="text-[#666]">{merchantPhone}</span>
                     </div>
                   )}
                 </div>
@@ -701,25 +737,25 @@ function ProductDetailContent() {
           </section>
         )}
 
-        <section className="bg-white rounded-2xl p-6 mb-8">
+        <section className="bg-white rounded-2xl p-4 sm:p-6 mb-8">
           <h2 className="text-2xl font-bold text-[#1f2329] mb-6">Product Details</h2>
           <div className="grid md:grid-cols-2 gap-6">
             <div>
               <h3 className="font-bold text-[#1f2329] mb-3">Product Information</h3>
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
+                <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
                   <span className="text-[#666]">Name:</span>
                   <span className="font-medium text-[#1f2329]">{productName}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
                   <span className="text-[#666]">Category:</span>
                   <span className="font-medium text-[#1f2329]">{product?.category || "General"}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
                   <span className="text-[#666]">Price:</span>
                   <span className="font-medium text-[#157a4f]">Rs.{productPrice.toLocaleString("en-IN")}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
                   <span className="text-[#666]">Stock:</span>
                   <span className="font-medium text-[#1f2329]">{safeStock}</span>
                 </div>

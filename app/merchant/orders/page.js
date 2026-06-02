@@ -142,17 +142,17 @@ export default function MerchantOrdersPage() {
     <div className="min-h-screen bg-[#ececec] text-[#1b1b1b]" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
       <MerchantNavbar activeKey="orders" />
 
-      <main className="w-full px-8 lg:px-10 py-6">
-        <div className="mx-auto w-full max-w-[1400px] space-y-5">
+      <main className="w-full px-4 py-4 lg:px-10 lg:py-6">
+        <div className="mx-auto w-full max-w-[1400px] space-y-4 lg:space-y-5">
           <section className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-5 items-start">
             <div>
-              <h1 className="text-[42px] font-semibold leading-none text-[#1e1e1e]">Orders</h1>
+              <h1 className="text-[32px] font-semibold leading-none text-[#1e1e1e] lg:text-[42px]">Orders</h1>
               <p className="mt-3 text-[13px] text-[#6f6f6f] max-w-[420px]">
                 Manage your store's daily activity, process incoming requests, and track your revenue growth.
               </p>
             </div>
 
-            <div className="rounded-[12px] bg-[#dff3e4] border border-[#cfe7d5] px-5 py-4 shadow-sm">
+            <div className="rounded-[12px] bg-[#dff3e4] border border-[#cfe7d5] px-4 py-4 shadow-sm lg:px-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-[12px] font-semibold text-[#2f6140]">Today's Orders</p>
@@ -161,56 +161,56 @@ export default function MerchantOrdersPage() {
                 <span className="rounded-full bg-[#2f8f55] px-2 py-0.5 text-[10px] font-semibold text-white">Live</span>
               </div>
 
-              <div className="mt-5 flex items-end gap-6">
+              <div className="mt-4 flex items-end gap-4 lg:mt-5 lg:gap-6">
                 <div>
-                  <p className="text-[44px] leading-none font-semibold text-[#1d2b21]">{stats.todayOrders || 0}</p>
+                  <p className="text-[34px] leading-none font-semibold text-[#1d2b21] lg:text-[44px]">{stats.todayOrders || 0}</p>
                   <p className="text-[10px] uppercase tracking-[0.12em] text-[#6f8f79] mt-1">Orders ↗</p>
                 </div>
                 <div className="h-10 w-px bg-[#c9e0cf]" />
                 <div>
-                  <p className="text-[32px] leading-none font-semibold text-[#1d2b21]">₹{stats.totalRevenue || 0}</p>
+                  <p className="text-[24px] leading-none font-semibold text-[#1d2b21] lg:text-[32px]">₹{stats.totalRevenue || 0}</p>
                   <p className="text-[10px] uppercase tracking-[0.12em] text-[#6f8f79] mt-1">Revenue ↗</p>
                 </div>
               </div>
             </div>
           </section>
 
-          <section className="rounded-[12px] border border-[#e5e5e5] bg-[#f9f9f9] px-5 py-4 shadow-[0_1px_0_rgba(0,0,0,0.03)]">
+          <section className="rounded-[12px] border border-[#e5e5e5] bg-[#f9f9f9] px-3 py-4 shadow-[0_1px_0_rgba(0,0,0,0.03)] lg:px-5">
             {loadError ? (
               <div className="mb-4 rounded-[10px] border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] text-amber-900">
                 {loadError}
               </div>
             ) : null}
 
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="inline-flex rounded-[10px] border border-[#e1e1e1] bg-white p-1 shadow-[0_1px_0_rgba(0,0,0,0.02)]">
+            <div className="flex flex-wrap items-center justify-between gap-3 lg:gap-4">
+              <div className="flex w-full gap-1 overflow-x-auto overflow-y-hidden rounded-[10px] border border-[#e1e1e1] bg-white p-1 shadow-[0_1px_0_rgba(0,0,0,0.02)] [-ms-overflow-style:none] [scrollbar-width:none] lg:inline-flex lg:w-auto lg:overflow-visible [&::-webkit-scrollbar]:hidden">
                 <button
                   onClick={() => setActiveTab("all")}
-                  className={`h-8 min-w-[72px] rounded-[8px] px-3 text-[11px] font-semibold ${activeTab === "all" ? "bg-[#f2faf4] text-[#157a4f]" : "text-[#6d6d6d]"}`}
+                  className={`h-8 shrink-0 min-w-[68px] rounded-[8px] px-2.5 text-[11px] font-semibold lg:min-w-[72px] lg:px-3 ${activeTab === "all" ? "bg-[#f2faf4] text-[#157a4f]" : "text-[#6d6d6d]"}`}
                 >
                   All Orders
                 </button>
                 <button
                   onClick={() => setActiveTab("accepted")}
-                  className={`h-8 min-w-[88px] rounded-[8px] px-3 text-[11px] font-semibold ${activeTab === "accepted" ? "bg-[#f2faf4] text-[#157a4f]" : "text-[#6d6d6d]"}`}
+                  className={`h-8 shrink-0 min-w-[78px] rounded-[8px] px-2.5 text-[11px] font-semibold lg:min-w-[88px] lg:px-3 ${activeTab === "accepted" ? "bg-[#f2faf4] text-[#157a4f]" : "text-[#6d6d6d]"}`}
                 >
                   Accepted
                 </button>
                 <button
                   onClick={() => setActiveTab("completed")}
-                  className={`h-8 min-w-[88px] rounded-[8px] px-3 text-[11px] font-semibold ${activeTab === "completed" ? "bg-[#f2faf4] text-[#157a4f]" : "text-[#6d6d6d]"}`}
+                  className={`h-8 shrink-0 min-w-[84px] rounded-[8px] px-2.5 text-[11px] font-semibold lg:min-w-[88px] lg:px-3 ${activeTab === "completed" ? "bg-[#f2faf4] text-[#157a4f]" : "text-[#6d6d6d]"}`}
                 >
                   Completed
                 </button>
                 <button
                   onClick={() => setActiveTab("pending")}
-                  className={`h-8 min-w-[72px] rounded-[8px] px-3 text-[11px] font-semibold ${activeTab === "pending" ? "bg-[#f2faf4] text-[#157a4f]" : "text-[#6d6d6d]"}`}
+                  className={`h-8 shrink-0 min-w-[70px] rounded-[8px] px-2.5 text-[11px] font-semibold lg:min-w-[72px] lg:px-3 ${activeTab === "pending" ? "bg-[#f2faf4] text-[#157a4f]" : "text-[#6d6d6d]"}`}
                 >
                   Pending
                 </button>
                 <button
                   onClick={() => setActiveTab("rejected")}
-                  className={`h-8 min-w-[72px] rounded-[8px] px-3 text-[11px] font-semibold ${activeTab === "rejected" ? "bg-[#fff0f0] text-[#ef4d4d]" : "text-[#6d6d6d]"}`}
+                  className={`h-8 shrink-0 min-w-[72px] rounded-[8px] px-2.5 text-[11px] font-semibold lg:px-3 ${activeTab === "rejected" ? "bg-[#fff0f0] text-[#ef4d4d]" : "text-[#6d6d6d]"}`}
                 >
                   Rejected
                 </button>
@@ -221,7 +221,7 @@ export default function MerchantOrdersPage() {
 
             <div className="mt-4 space-y-3">
               {filteredOrders.map((order) => (
-                <article key={order.id} className="rounded-[10px] border border-[#ececec] bg-white px-4 py-4 shadow-[0_1px_0_rgba(0,0,0,0.03)]">
+                <article key={order.id} className="rounded-[10px] border border-[#ececec] bg-white px-3 py-4 shadow-[0_1px_0_rgba(0,0,0,0.03)] lg:px-4">
                   <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr_220px] gap-4 items-center">
                     <div>
                       <div className="flex items-center gap-2 text-[9px] uppercase tracking-[0.14em] text-[#7d7d7d]">
@@ -252,18 +252,18 @@ export default function MerchantOrdersPage() {
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-end gap-3">
+                    <div className="flex flex-wrap items-center justify-end gap-2 lg:gap-3">
                       {order.actionTone === "primary" ? (
                         <>
                           <button
                             onClick={() => handleOrderAction(order._id, "rejected")}
-                            className="h-8 rounded-[8px] border border-[#f0c7c7] bg-white px-5 text-[11px] font-semibold text-[#ef4d4d] inline-flex items-center gap-1.5"
+                            className="h-8 flex-1 rounded-[8px] border border-[#f0c7c7] bg-white px-3 text-[11px] font-semibold text-[#ef4d4d] inline-flex items-center justify-center gap-1.5 lg:flex-none lg:px-5"
                           >
                             × Reject
                           </button>
                           <button
                             onClick={() => handleOrderAction(order._id, "accepted")}
-                            className="h-8 rounded-[8px] bg-[#2f8f55] px-5 text-[11px] font-semibold text-white inline-flex items-center gap-1.5"
+                            className="h-8 flex-1 rounded-[8px] bg-[#2f8f55] px-3 text-[11px] font-semibold text-white inline-flex items-center justify-center gap-1.5 lg:flex-none lg:px-5"
                           >
                             ✓ Accept Order
                           </button>
@@ -294,25 +294,25 @@ export default function MerchantOrdersPage() {
         </div>
       </main>
 
-      <footer className="mt-6 bg-[#e8ad2f] border-t border-[#d49b22] text-[#2f2a1f]">
-        <div className="mx-auto w-full max-w-[1400px] px-8 lg:px-10 py-6 grid grid-cols-1 md:grid-cols-4 gap-8">
+      <footer className="mt-4 bg-[#e8ad2f] border-t border-[#d49b22] text-[#2f2a1f] lg:mt-6">
+        <div className="mx-auto w-full max-w-[1400px] px-4 py-4 grid grid-cols-2 gap-4 text-[12px] md:grid-cols-4 lg:px-10 lg:py-6 lg:gap-8 lg:text-base">
           <div>
             <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-[3px] bg-[#0f7d49] text-white text-[26px] font-bold flex items-center justify-center leading-none">G</div>
-              <span className="text-[34px] leading-none font-semibold text-[#0f7d49]">GOLO</span>
+              <div className="h-6 w-6 rounded-[3px] bg-[#0f7d49] text-white text-[20px] font-bold flex items-center justify-center leading-none lg:h-8 lg:w-8 lg:text-[26px]">G</div>
+              <span className="text-[24px] leading-none font-semibold text-[#0f7d49] lg:text-[34px]">GOLO</span>
             </div>
-            <p className="mt-3 text-[12px] max-w-[250px]">The all-in-one management platform for modern businesses. Empowering growth through analytics and intuitive product management.</p>
+            <p className="mt-2 text-[11px] max-w-[250px] lg:mt-3 lg:text-[12px]">The all-in-one management platform for modern businesses.</p>
           </div>
           <div>
-            <div className="mt-3 space-y-2 text-[13px]"><p>Overview</p><p>Inventory</p><p>Posts</p><p>Profile</p></div>
+            <div className="mt-2 space-y-1 text-[12px] lg:mt-3 lg:space-y-2 lg:text-[13px]"><p>Overview</p><p>Inventory</p><p>Posts</p><p>Profile</p></div>
           </div>
-          <div className="pt-8 md:pt-9 space-y-2 text-[13px]"><p>Analytics</p><p>Contact</p></div>
+          <div className="space-y-1 text-[12px] md:pt-9 lg:space-y-2 lg:text-[13px]"><p>Analytics</p><p>Contact</p></div>
           <div>
-            <p className="text-[20px] font-bold">Support</p>
-            <div className="mt-3 space-y-2 text-[13px]"><p>Help Center</p><p>Security</p><p>Terms of Service</p></div>
+            <p className="text-[15px] font-bold lg:text-[20px]">Support</p>
+            <div className="mt-2 space-y-1 text-[12px] lg:mt-3 lg:space-y-2 lg:text-[13px]"><p>Help Center</p><p>Security</p><p>Terms of Service</p></div>
           </div>
         </div>
-        <div className="mx-auto w-full max-w-[1400px] px-8 lg:px-10 py-3 border-t border-[#d49b22] flex items-center justify-between gap-3 text-[11px]"><p>© 2026 GOLO Dashboard. All rights reserved.</p></div>
+        <div className="mx-auto w-full max-w-[1400px] px-4 py-2 border-t border-[#d49b22] flex items-center justify-between gap-3 text-[10px] lg:px-10 lg:py-3 lg:text-[11px]"><p>© 2026 GOLO Dashboard. All rights reserved.</p></div>
       </footer>
     </div>
   );

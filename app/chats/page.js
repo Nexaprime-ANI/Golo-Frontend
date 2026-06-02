@@ -15,10 +15,10 @@ import {
   startConversation,
   uploadChatAttachment,
 } from "../lib/api";
-import { API_ORIGIN_URL } from "../lib/api";
+import { API_ORIGIN_URL, getStoredAccessToken } from "../lib/api";
 
 const API_BASE = "/api";
-const SOCKET_ORIGIN = API_ORIGIN_URL || "https://golo-backend-new.onrender.com";
+const SOCKET_ORIGIN = API_ORIGIN_URL || "http://localhost:3002";
 const CALL_ICE_SERVERS = [{ urls: "stun:stun.l.google.com:19302" }];
 
 const formatCallDuration = (value) => {
@@ -731,6 +731,7 @@ function ChatsPageContent() {
         reconnectionAttempts: 20,
         reconnectionDelay: 1000,
         withCredentials: true,
+        auth: { token: getStoredAccessToken() },
       });
 
       socket.on("connect", () => {
@@ -738,8 +739,12 @@ function ChatsPageContent() {
         joinSelectedConversationRoom();
       });
 
-      socket.on("connect_error", () => {
-        setPageError("Realtime connection failed. Messages still work via API.");
+      socket.on("connect_error", (error) => {
+        setPageError(
+          error?.message
+            ? `Realtime connection failed: ${error.message}`
+            : "Realtime connection failed. Messages still work via API."
+        );
       });
 
       socket.on("new_message", (incoming) => {
@@ -882,6 +887,7 @@ function ChatsPageContent() {
         reconnectionAttempts: 20,
         reconnectionDelay: 1000,
         withCredentials: true,
+        auth: { token: getStoredAccessToken() },
       });
 
       socket.on("connect", () => {
@@ -915,9 +921,13 @@ function ChatsPageContent() {
         scheduleCallRecoveryTimeout();
       });
 
-      socket.on("connect_error", () => {
+      socket.on("connect_error", (error) => {
         setIsCallRecovering(true);
-        setCallError("Call connection failed. Please check your network.");
+        setCallError(
+          error?.message
+            ? `Call connection failed: ${error.message}`
+            : "Call connection failed. Please check your network."
+        );
       });
 
       socket.on("call_error", (event) => {
@@ -1459,7 +1469,7 @@ function ChatsPageContent() {
       <div className="flex flex-1 min-h-0 overflow-hidden">
 
         {/* SIDEBAR */}
-        <aside className="w-[360px] bg-white border-r border-gray-200 flex flex-col h-full min-h-0 overflow-hidden">
+        <aside className={`${selectedConversationId ? "hidden md:flex" : "flex"} w-full bg-white border-r border-gray-200 flex-col h-full min-h-0 overflow-hidden md:w-[360px]`}>
           <ChatSidebar
             conversations={conversations}
             selectedId={selectedConversationId}
@@ -1470,14 +1480,14 @@ function ChatsPageContent() {
         </aside>
 
         {/* CHAT WINDOW */}
-        <main className="flex-1 flex flex-col bg-[#F8F6F2] h-full min-h-0 overflow-hidden">
+        <main className={`${selectedConversationId ? "flex" : "hidden md:flex"} flex-1 flex-col bg-[#F8F6F2] h-full min-h-0 overflow-hidden`}>
           {pageError && (
-            <div className="mx-8 mt-4 bg-red-50 border border-red-200 text-red-700 text-sm font-semibold rounded-lg px-4 py-2">
+            <div className="mx-4 mt-3 bg-red-50 border border-red-200 text-red-700 text-sm font-semibold rounded-lg px-4 py-2 md:mx-8 md:mt-4">
               {pageError}
             </div>
           )}
           {callError && (
-            <div className="mx-8 mt-3 bg-amber-50 border border-amber-200 text-amber-800 text-sm font-semibold rounded-lg px-4 py-2">
+            <div className="mx-4 mt-3 bg-amber-50 border border-amber-200 text-amber-800 text-sm font-semibold rounded-lg px-4 py-2 md:mx-8">
               {callError}
             </div>
           )}
@@ -1494,6 +1504,7 @@ function ChatsPageContent() {
             onTyping={handleTyping}
             onStartCall={handleStartCall}
             callState={callUi.status}
+            onBack={() => setSelectedConversation(null)}
           />
 
           <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />

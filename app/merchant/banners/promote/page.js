@@ -220,12 +220,12 @@ export default function PromoteBannerPage() {
                 <div className="space-y-4">
                 <div>
                     <label className="block text-[13px] font-semibold text-[#2a2a2a] mb-2">Promotion Calendar</label>
-                    <div className="rounded-[10px] border border-[#e4e4e4] bg-[#fafafa] p-4 h-[420px] flex flex-col">
-                      <div className="grid grid-cols-2 gap-4 flex-1 overflow-hidden">
+                    <div className="rounded-[10px] border border-[#e4e4e4] bg-[#fafafa] p-3 flex flex-col sm:p-4 lg:h-[420px]">
+                      <div className="grid grid-cols-1 gap-3 flex-1 sm:gap-4 lg:grid-cols-2 lg:overflow-hidden">
                         {/* Left Column: Calendar */}
-                        <div className="bg-white rounded-[8px] border border-[#e4e4e4] p-4 overflow-y-auto">
+                        <div className="bg-white rounded-[8px] border border-[#e4e4e4] p-3 sm:p-4 lg:overflow-y-auto">
                           {/* Month/Year Navigation */}
-                          <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center justify-between mb-3 sm:mb-4">
                             <button
                               onClick={() => {
                                 if (currentMonth === 0) {
@@ -239,7 +239,7 @@ export default function PromoteBannerPage() {
                             >
                               ‹
                             </button>
-                            <p className="text-[13px] font-semibold text-[#1f1f1f]">
+                            <p className="text-[12px] font-semibold text-[#1f1f1f] sm:text-[13px]">
                               {new Date(currentYear, currentMonth).toLocaleDateString("en-GB", {
                                 month: "long",
                                 year: "numeric",
@@ -263,8 +263,9 @@ export default function PromoteBannerPage() {
                           {/* Weekday Headers */}
                           <div className="grid grid-cols-7 gap-1 mb-2">
                             {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-                              <div key={day} className="h-6 flex items-center justify-center text-[10px] font-semibold text-[#666]">
-                                {day}
+                              <div key={day} className="h-5 flex items-center justify-center text-[9px] font-semibold text-[#666] sm:h-6 sm:text-[10px]">
+                                <span className="sm:hidden">{day.slice(0, 1)}</span>
+                                <span className="hidden sm:inline">{day}</span>
                               </div>
                             ))}
                           </div>
@@ -294,7 +295,7 @@ export default function PromoteBannerPage() {
                                     }
                                   }}
                                   disabled={isPast}
-                                  className={`h-7 rounded-[4px] text-[11px] font-medium transition ${
+                                  className={`h-8 rounded-[6px] text-[11px] font-medium transition sm:h-7 sm:rounded-[4px] ${
                                     !day
                                       ? "bg-transparent"
                                       : isPast
@@ -314,10 +315,10 @@ export default function PromoteBannerPage() {
                         </div>
 
                         {/* Right Column: Selected Dates */}
-                        <div className="space-y-3 flex flex-col overflow-hidden">
-                          <div className="flex-1 space-y-2 overflow-hidden flex flex-col">
+                        <div className="space-y-3 flex flex-col min-h-0 lg:overflow-hidden">
+                          <div className="flex-1 space-y-2 min-h-0 flex flex-col">
                             <p className="text-[11px] text-[#6c6c6c] font-medium">Selected Dates ({selectedDates.length})</p>
-                            <div className="bg-white rounded-[8px] border border-[#e4e4e4] p-3 space-y-2 flex-1 overflow-y-auto">
+                            <div className="bg-white rounded-[8px] border border-[#e4e4e4] p-3 space-y-2 max-h-[150px] overflow-y-auto lg:max-h-none lg:flex-1">
                               {selectedDates.length > 0 ? (
                                 <div className="space-y-2">
                                   {selectedDates.map((dateStr) => (
@@ -428,7 +429,7 @@ export default function PromoteBannerPage() {
         </div>
       </main>
 
-      <footer className="bg-[#f0b330] text-[#1b1b1b] px-4 lg:px-8 py-7 mt-6">
+      <footer className="bg-[#e8ad2f] border-t border-[#d49b22] text-[#1b1b1b] px-4 py-4 lg:bg-[#f0b330] lg:px-8 lg:py-7 mt-4 lg:mt-6">
         <div className="max-w-[1500px] mx-auto flex flex-col lg:flex-row gap-8 lg:gap-12 items-start justify-between">
           <div className="max-w-[240px]">
             <div className="flex items-center gap-2 mb-4">

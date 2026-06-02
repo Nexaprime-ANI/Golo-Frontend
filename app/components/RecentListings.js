@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState, useMemo, Suspense } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
 import { getAllAds, getNearbyAds, searchAds } from "../lib/api";
@@ -192,7 +192,7 @@ function RecentListingsContent() {
 
             {loading && (
                 <div className="w-full px-6 lg:px-8">
-                    <div className="grid grid-cols-12 auto-rows-[220px] gap-6">
+                    <div className="grid grid-cols-12 auto-rows-[220px] gap-6 grid-flow-row grid-flow-dense">
                         {Array.from({ length: 8 }).map((_, i) => (
                             <div
                                 key={i}
@@ -220,7 +220,7 @@ function RecentListingsContent() {
 
             {!loading && !error && ads.length > 0 && (
                 <div className="w-full px-6 lg:px-8">
-                    <div className="grid grid-cols-12 auto-rows-[220px] gap-6">
+                    <GridPackerContainer>
                         {layoutAds.map((ad, index) => {
                             const cls = `${ad.col} ${ad.row}`;
                             if (ad.type === "big") {
@@ -231,7 +231,7 @@ function RecentListingsContent() {
                                 return <TextAd key={ad._id || ad.adId || index} ad={ad} className={cls} isAuthenticated={isAuthenticated} onRequireAuth={() => setShowAuthPrompt(true)} />;
                             }
                         })}
-                    </div>
+                    </GridPackerContainer>
                 </div>
             )}
 
@@ -268,6 +268,134 @@ export default function RecentListings() {
     );
 }
 
+// Helpers for packer: derive numeric spans from Tailwind class strings
+function getColSpanFromClass(colClass) {
+    if (!colClass || typeof window === 'undefined') return 12;
+    const w = window.innerWidth;
+    // default
+    let span = 12;
+    // pick lg if applicable
+    if (w >= 1024) {
+        const m = colClass.match(/lg:col-span-(\d+)/);
+        if (m) return parseInt(m[1], 10);
+    }
+    if (w >= 640) {
+        const m = colClass.match(/sm:col-span-(\d+)/);
+        if (m) return parseInt(m[1], 10);
+    }
+    const m = colClass.match(/col-span-(\d+)/);
+    if (m) return parseInt(m[1], 10);
+    return span;
+}
+
+function getRowSpanFromClass(rowClass) {
+    if (!rowClass) return 1;
+    const m = rowClass.match(/row-span-(\d+)/);
+    if (m) return parseInt(m[1], 10);
+    return 1;
+}
+
+function GridPackerContainer({ children }) {
+    const containerRef = useRef(null);
+
+    useEffect(() => {
+        const container = containerRef.current;
+        if (!container) return;
+
+        const columns = 12;
+
+        function pack() {
+            // clear previous explicit placement
+            Array.from(container.children).forEach((child) => {
+                child.style.gridColumnStart = '';
+                child.style.gridRowStart = '';
+            });
+
+            const occupancy = {}; // row -> boolean array cols 1-based
+
+            function isFree(r, c, w, h) {
+                for (let rr = r; rr < r + h; rr++) {
+                    if (!occupancy[rr]) occupancy[rr] = new Array(columns + 1).fill(false);
+                    for (let cc = c; cc < c + w; cc++) {
+                        if (occupancy[rr][cc]) return false;
+                    }
+                }
+                return true;
+            }
+
+            function occupy(r, c, w, h) {
+                for (let rr = r; rr < r + h; rr++) {
+                    if (!occupancy[rr]) occupancy[rr] = new Array(columns + 1).fill(false);
+                    for (let cc = c; cc < c + w; cc++) occupancy[rr][cc] = true;
+                }
+            }
+
+            Array.from(container.children).forEach((child) => {
+                const w = parseInt(child.dataset.colspan || '12', 10);
+                const h = parseInt(child.dataset.rowspan || '1', 10);
+
+                // find first row/col where it fits
+                let placed = false;
+                for (let r = 1; !placed; r++) {
+                    for (let c = 1; c <= columns - w + 1; c++) {
+                        if (isFree(r, c, w, h)) {
+                            occupy(r, c, w, h);
+                            child.style.gridColumnStart = `${c}`;
+                            child.style.gridRowStart = `${r}`;
+                            placed = true;
+                            break;
+                        }
+                    }
+                }
+            });
+        }
+
+        let rafId = 0;
+
+        function schedulePack() {
+            if (rafId) cancelAnimationFrame(rafId);
+            rafId = requestAnimationFrame(() => {
+                pack();
+            });
+        }
+
+        // Repack when images load or children change
+        schedulePack();
+
+        const imgs = container.querySelectorAll('img');
+        let loaded = 0;
+        imgs.forEach((img) => {
+            if (img.complete) {
+                loaded++;
+            } else {
+                img.addEventListener('load', schedulePack);
+                img.addEventListener('error', schedulePack);
+            }
+        });
+
+        const observer = new MutationObserver(schedulePack);
+        observer.observe(container, { childList: true, subtree: false, attributes: true });
+
+        window.addEventListener('resize', schedulePack);
+
+        return () => {
+            if (rafId) cancelAnimationFrame(rafId);
+            observer.disconnect();
+            window.removeEventListener('resize', schedulePack);
+            imgs.forEach((img) => {
+                img.removeEventListener('load', schedulePack);
+                img.removeEventListener('error', schedulePack);
+            });
+        };
+    }, [children]);
+
+    return (
+        <div ref={containerRef} className="grid grid-cols-12 auto-rows-[220px] gap-6" style={{ position: 'relative' }}>
+            {children}
+        </div>
+    );
+}
+
 function MultiImageAd({ ad, className, isAuthenticated, onRequireAuth }) {
     const router = useRouter();
     const images = ad.images && ad.images.length > 0
@@ -288,6 +416,8 @@ function MultiImageAd({ ad, className, isAuthenticated, onRequireAuth }) {
                 router.push(`/product/${ad._id || ad.adId}`);
             }}
             className={`relative rounded-3xl overflow-hidden group cursor-pointer shadow-sm hover:shadow-2xl transition ${className}`}
+            data-colspan={getColSpanFromClass(ad.col)}
+            data-rowspan={getRowSpanFromClass(ad.row)}
         >
             {images.map((img, index) => (
                 <Image
@@ -363,6 +493,8 @@ function SingleImageAd({ ad, className, isAuthenticated, onRequireAuth }) {
                 router.push(`/product/${ad._id || ad.adId}`);
             }}
             className={`relative rounded-3xl overflow-hidden group cursor-pointer shadow-sm hover:shadow-xl transition ${className}`}
+            data-colspan={getColSpanFromClass(ad.col)}
+            data-rowspan={getRowSpanFromClass(ad.row)}
         >
             <Image
                 src={image}
@@ -422,6 +554,8 @@ function TextAd({ ad, className, isAuthenticated, onRequireAuth }) {
                 router.push(`/product/${ad._id || ad.adId}`);
             }}
             className={`bg-white rounded-3xl p-6 shadow-sm hover:shadow-xl transition cursor-pointer flex flex-col justify-between ${className}`}
+            data-colspan={getColSpanFromClass(ad.col)}
+            data-rowspan={getRowSpanFromClass(ad.row)}
         >
             <div>
                 <span className="text-xs uppercase tracking-wide text-gray-400">{ad.category || "Category"}</span>

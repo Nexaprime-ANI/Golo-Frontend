@@ -6,10 +6,11 @@ import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import ProfileSidebar from "../components/ProfileSidebar";
 import AdCard from "../components/AdCard";
+import PostAdForm from "../components/PostAdForm";
 import Link from "next/link";
 import { useAuth } from "../context/AuthContext";
 import { useRoleProtection, LoadingScreen } from "../components/RoleBasedRedirect";
-import { getMyAds } from "../lib/api";
+import { getMyAds, updateAd } from "../lib/api";
 
 export default function MyAds() {
   const { isAuthenticated, user } = useAuth();
@@ -19,6 +20,21 @@ export default function MyAds() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [editingAd, setEditingAd] = useState(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editCities, setEditCities] = useState([]);
+  const [editUploadedImages, setEditUploadedImages] = useState([]);
+  const [editPrimaryContact, setEditPrimaryContact] = useState("");
+  const [editSelectedCategory, setEditSelectedCategory] = useState(null);
+  const [editSelectedDates, setEditSelectedDates] = useState([]);
+  const [editMobilePrice, setEditMobilePrice] = useState("");
+  const [editMonthlyRent, setEditMonthlyRent] = useState("");
+  const [editPropertyTypeRent, setEditPropertyTypeRent] = useState("");
+  const [editTemplateId, setEditTemplateId] = useState(1);
+  const [editCategoryDetails, setEditCategoryDetails] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState("");
   const limit = 9;
 
   useEffect(() => {
@@ -112,6 +128,22 @@ export default function MyAds() {
                       onDelete={(deletedId) => {
                         setAds(prev => prev.filter(a => (a.adId || a._id) !== deletedId));
                       }}
+                      onEdit={(ad) => {
+                        setEditingAd(ad);
+                        setEditTitle("");
+                        setEditDescription("");
+                        setEditCities([]);
+                        setEditUploadedImages([]);
+                        setEditPrimaryContact("");
+                        setEditSelectedCategory(null);
+                        setEditSelectedDates([]);
+                        setEditMobilePrice("");
+                        setEditMonthlyRent("");
+                        setEditPropertyTypeRent("");
+                        setEditTemplateId(1);
+                        setEditCategoryDetails(true);
+                        setEditError("");
+                      }}
                     />
                   ))}
                 </div>
@@ -159,6 +191,241 @@ export default function MyAds() {
       </div>
 
       <Footer />
+
+      {editingAd && (
+        <div className="fixed inset-0 z-[10000] bg-black/50 flex items-center justify-center px-4 py-6">
+          <div className="w-full max-w-7xl max-h-[calc(100vh-4rem)] overflow-hidden rounded-[28px] bg-white shadow-2xl border border-gray-200 flex flex-col">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200">
+              <div>
+                <h2 className="text-xl font-semibold text-slate-900">Edit Ad</h2>
+                <p className="text-sm text-slate-500">Edit every field for this ad. The update can be saved only once.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingAd(null)}
+                className="rounded-full p-2 text-slate-500 hover:bg-slate-100"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <div className="px-6 py-6">
+                {editError && (
+                  <div className="rounded-2xl bg-rose-50 border border-rose-200 px-4 py-3 text-sm text-rose-700">
+                    {editError}
+                  </div>
+                )}
+              </div>
+              <div className="px-6 pb-6">
+                <PostAdForm
+                  adTitleState={editTitle}
+                  setAdTitleState={setEditTitle}
+                  adDescriptionState={editDescription}
+                  setAdDescriptionState={setEditDescription}
+                  cities={editCities}
+                  setCities={setEditCities}
+                  uploadedImages={editUploadedImages}
+                  setUploadedImages={setEditUploadedImages}
+                  primaryContact={editPrimaryContact}
+                  setPrimaryContact={setEditPrimaryContact}
+                  selectedCategory={editSelectedCategory}
+                  setSelectedCategory={setEditSelectedCategory}
+                  selectedDates={editSelectedDates}
+                  setSelectedDates={setEditSelectedDates}
+                  mobilePrice={editMobilePrice}
+                  setMobilePrice={setEditMobilePrice}
+                  monthlyRent={editMonthlyRent}
+                  setMonthlyRent={setEditMonthlyRent}
+                  propertyTypeRent={editPropertyTypeRent}
+                  setPropertyTypeRent={setEditPropertyTypeRent}
+                  onCategoryDetailsChange={setEditCategoryDetails}
+                  templateId={editTemplateId}
+                  setTemplateId={setEditTemplateId}
+                  initialAd={editingAd}
+                />
+              </div>
+            </div>
+            <div className="sticky bottom-0 z-20 border-t border-gray-200 bg-white px-6 py-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-2">
+                  <p className="text-sm text-slate-600">Category: <span className="font-semibold text-slate-900">{editSelectedCategory?.name || editingAd.category || "Unknown"}</span></p>
+                  <p className="text-sm text-slate-600">Subcategory: <span className="font-semibold text-slate-900">{editSelectedCategory?.sub ? (editingAd.subCategory || editSelectedCategory?.sub?.[0]) : editingAd.subCategory || "General"}</span></p>
+                  <p className="text-sm text-slate-600">Fields complete: <span className="font-semibold text-slate-900">{editCategoryDetails ? "Yes" : "No"}</span></p>
+                </div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingAd(null);
+                      setEditCategoryDetails(false);
+                    }}
+                    className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 sm:w-auto"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={editSaving || !editCategoryDetails}
+                    onClick={async () => {
+                      if (!editingAd) return;
+                      if (!editCategoryDetails) {
+                        setEditError("Please complete all category details before saving.");
+                        return;
+                      }
+
+                      setEditSaving(true);
+                      setEditError("");
+
+                      const normalizePhone = (value) => {
+                        const digits = String(value || "").replace(/\D/g, "");
+                        if (!digits) return "";
+                        if (digits.startsWith("91") && digits.length === 12) return `+${digits}`;
+                        if (digits.length === 10) return `+91${digits}`;
+                        return value;
+                      };
+
+                      const rawCategoryName = typeof editSelectedCategory === "string"
+                        ? editSelectedCategory
+                        : editSelectedCategory?.name || editingAd.category || "";
+
+                      const categoryNameMap = {
+                        Electronics: "Electronics & Home appliances",
+                      };
+
+                      const normalizedCategory = categoryNameMap[rawCategoryName] || rawCategoryName;
+                      const normalizedPhone = normalizePhone(editPrimaryContact);
+                      const resolvedPrice = Number(
+                        editCategoryDetails?.price ??
+                        editCategoryDetails?.rent ??
+                        editCategoryDetails?.askingPrice ??
+                        editCategoryDetails?.rentAmount ??
+                        editCategoryDetails?.fees ??
+                        editCategoryDetails?.pricePerPerson ??
+                        editCategoryDetails?.consultationFee ??
+                        editCategoryDetails?.charges ??
+                        editMobilePrice ??
+                        editMonthlyRent ??
+                        0
+                      ) || 0;
+
+                      const uploadedUrls = [];
+                      try {
+                        const { uploadToCloudinary } = await import("../services/cloudinaryConfig");
+                        for (const img of editUploadedImages || []) {
+                          if (img?.file) {
+                            const uploadedData = await uploadToCloudinary(img.file);
+                            uploadedUrls.push(uploadedData.url);
+                          } else if (typeof img === "string") {
+                            uploadedUrls.push(img);
+                          } else if (img?.url) {
+                            uploadedUrls.push(img.url);
+                          }
+                        }
+                      } catch (uploadError) {
+                        setEditError(uploadError?.message || "Image upload failed. Please try again.");
+                        setEditSaving(false);
+                        return;
+                      }
+
+                      const updateData = {
+                        title: editTitle.trim(),
+                        description: editDescription.trim(),
+                        category: normalizedCategory,
+                        subCategory:
+                          editCategoryDetails?.subCategory ||
+                          editCategoryDetails?.listingType ||
+                          editCategoryDetails?.type ||
+                          editCategoryDetails?.tributeType ||
+                          (typeof editSelectedCategory === "string"
+                            ? editSelectedCategory
+                            : editSelectedCategory?.name || "General"),
+                        images: uploadedUrls,
+                        price: resolvedPrice,
+                        location: editCities?.[0] || "India",
+                        city: editCities?.[0] || "",
+                        cities: editCities || [],
+                        primaryContact: normalizedPhone,
+                        contactInfo: {
+                          name: user?.name || "User",
+                          phone: normalizedPhone || "",
+                          email: user?.email || "",
+                          preferredContactMethod: "phone",
+                        },
+                        templateId: editTemplateId,
+                        selectedDates: editSelectedDates || [],
+                        negotiable: Boolean(editCategoryDetails?.negotiable),
+                        tags: [normalizedCategory].filter(Boolean),
+                        categorySpecificData: editCategoryDetails,
+                      };
+
+                      if (normalizedCategory === "Property" && editPropertyTypeRent) {
+                        updateData.propertyData = { propertyType: editPropertyTypeRent, rent: editMonthlyRent };
+                      }
+                      if (normalizedCategory === "Mobiles" && editMobilePrice) {
+                        updateData.mobileData = { price: editMobilePrice };
+                      }
+
+                      const categoryKeyMap = {
+                        Education: "educationData",
+                        Matrimonial: "matrimonialData",
+                        Vehicle: "vehicleData",
+                        Business: "businessData",
+                        Travel: "travelData",
+                        Astrology: "astrologyData",
+                        Property: "propertyData",
+                        "Public Notice": "publicNoticeData",
+                        "Lost & Found": "lostFoundData",
+                        Service: "serviceData",
+                        Personal: "personalData",
+                        Employment: "employmentData",
+                        Pets: "petsData",
+                        Mobiles: "mobileData",
+                        Electronics: "electronicsData",
+                        "Electronics & Home appliances": "electronicsData",
+                        Furniture: "furnitureData",
+                        "Greetings & Tributes": "greetingsData",
+                        Other: "otherData",
+                      };
+
+                      const categoryKey = categoryKeyMap[normalizedCategory];
+                      if (categoryKey) {
+                        updateData[categoryKey] = editCategoryDetails;
+                      }
+
+                      try {
+                        const apiId = editingAd.adId || editingAd._id;
+                        const response = await updateAd(apiId, updateData);
+                        if (response?.success) {
+                          setAds((prevAds) => prevAds.map((ad) => {
+                            const id = ad.adId || ad._id;
+                            if (id !== apiId) return ad;
+                            return {
+                              ...ad,
+                              ...updateData,
+                              editCount: Math.max(Number(ad.editCount || 0), 0) + 1,
+                              hasUsedEdit: true,
+                            };
+                          }));
+                          setEditingAd(null);
+                        } else {
+                          setEditError(response?.message || "Unable to save changes. Please try again.");
+                        }
+                      } catch (error) {
+                        setEditError(error?.data?.message || error?.message || "Update failed. Please try again.");
+                      } finally {
+                        setEditSaving(false);
+                      }
+                    }}
+                    className="w-full rounded-2xl bg-[#157A4F] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#13673a] disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
+                  >
+                    {editSaving ? "Saving..." : "Save Changes"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

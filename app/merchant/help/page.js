@@ -1,10 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { ChevronRight, MessageCircle, BookOpen, MailIcon, Phone, Search, User } from "lucide-react";
+import { ChevronRight, MessageCircle, BookOpen, MailIcon, Phone, Search, MoreVertical } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useRoleProtection, LoadingScreen } from "../../components/RoleBasedRedirect";
 import { useState, useEffect } from "react";
+import MerchantNavbar from "../MerchantNavbar";
 
 const topTabs = ["Profile Settings", "Loyalty Rewards", "Help", "Settings", "Logout"];
 
@@ -113,6 +114,7 @@ export default function MerchantHelpPage() {
   const [expandedFaq, setExpandedFaq] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showMobileTabs, setShowMobileTabs] = useState(false);
 
   const handleMerchantLogout = async () => {
     await logout();
@@ -145,48 +147,56 @@ export default function MerchantHelpPage() {
 
   return (
     <div className="min-h-screen bg-[#ececec] text-[#1b1b1b]" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
-      {/* Header */}
-      <header className="sticky top-0 z-[9999] h-16 bg-[#efb02e] border-b border-[#d7a02a] px-8 lg:px-10 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-3 min-w-[180px]">
-          <button
-            type="button"
-            onClick={() => router.push("/merchant/dashboard")}
-            className="flex items-center gap-3 cursor-pointer"
-          >
-            <div
-              className="w-9 h-9 bg-white rounded-xl flex items-center justify-center shadow font-bold"
-              style={{ color: "#157a4f" }}
-            >
-              G
-            </div>
-            <span className="text-xl font-semibold tracking-wide text-[#157a4f]">GOLO</span>
-          </button>
-        </div>
-
-        <div className="ml-auto flex items-center gap-8 text-[12px] font-semibold text-[#5a4514]">
-          <nav className="flex items-center gap-8">
-            <button onClick={() => router.push("/merchant/dashboard")}>Overview</button>
-            <button onClick={() => router.push("/merchant/orders")}>Orders</button>
-            <button onClick={() => router.push("/merchant/products")}>Products</button>
-            <button onClick={() => router.push("/merchant/offers")}>Offers</button>
-            <button onClick={() => router.push("/merchant/banners")}>Banners</button>
-            <button onClick={() => router.push("/merchant/analytics")}>Analytics</button>
-          </nav>
-
-          <button
-            type="button"
-            onClick={() => router.push("/merchant/profile")}
-            className="w-10 h-10 rounded-full bg-white shadow-md hover:scale-105 transition flex items-center justify-center"
-          >
-            <User size={18} style={{ color: "#157a4f" }} />
-          </button>
-        </div>
-      </header>
+      <MerchantNavbar activeKey="help" />
 
       {/* Tab Navigation */}
-      <div className="w-full px-8 lg:px-10 bg-white border-b border-[#e5e5e5]">
+      <div className="w-full px-4 lg:px-10 bg-white border-b border-[#e5e5e5]">
         <div className="mx-auto w-full max-w-[1400px]">
-          <div className="flex items-center justify-end gap-8 text-[12px] font-semibold py-6 flex-wrap">
+          <div className="relative flex justify-end py-3 lg:hidden">
+            <button
+              type="button"
+              onClick={() => setShowMobileTabs((value) => !value)}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-[#d8d8d8] bg-white text-[#157a4f] shadow-sm"
+              aria-label="Merchant help menu"
+            >
+              <MoreVertical size={20} />
+            </button>
+
+            {showMobileTabs && (
+              <div className="absolute right-0 top-14 z-30 w-56 overflow-hidden rounded-[14px] border border-[#e5e5e5] bg-white py-2 text-[12px] font-semibold shadow-xl">
+                {topTabs.map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => {
+                      setShowMobileTabs(false);
+                      if (tab === "Profile Settings") {
+                        router.push("/merchant/profile");
+                      } else if (tab === "Loyalty Rewards") {
+                        router.push("/merchant/profile?tab=loyalty");
+                      } else if (tab === "Settings") {
+                        router.push("/merchant/settings");
+                      } else if (tab === "Logout") {
+                        setShowLogoutConfirm(true);
+                      }
+                    }}
+                    className={`flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-[#f8f8f8] ${
+                      tab === "Help"
+                        ? "text-[#157a4f]"
+                        : tab === "Logout"
+                          ? "text-[#ef4444]"
+                          : "text-[#111]"
+                    }`}
+                  >
+                    <span>{tab}</span>
+                    {tab === "Help" && <span className="h-2 w-2 rounded-full bg-[#157a4f]" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="hidden items-center justify-end gap-8 text-[12px] font-semibold py-6 flex-wrap lg:flex">
             {topTabs.map((tab) => (
               <button
                 key={tab}
@@ -330,6 +340,28 @@ export default function MerchantHelpPage() {
           </div>
         </div>
       </main>
+
+      <footer className="mt-4 bg-[#e8ad2f] border-t border-[#d49b22] text-[#2f2a1f] lg:mt-6">
+        <div className="mx-auto w-full max-w-[1400px] px-4 py-4 grid grid-cols-2 gap-4 text-[12px] md:grid-cols-4 lg:px-10 lg:py-6 lg:gap-8 lg:text-base">
+          <div>
+            <div className="flex items-center gap-2">
+              <div className="h-6 w-6 rounded-[3px] bg-[#0f7d49] text-white text-[20px] font-bold flex items-center justify-center leading-none lg:h-8 lg:w-8 lg:text-[26px]">G</div>
+              <span className="text-[24px] leading-none font-semibold text-[#0f7d49] lg:text-[34px]">GOLO</span>
+            </div>
+            <p className="mt-2 text-[11px] max-w-[250px] lg:mt-3 lg:text-[12px]">The all-in-one management platform for modern businesses.</p>
+          </div>
+          <div>
+            <p className="text-[15px] font-bold lg:text-[20px]">Links</p>
+            <div className="mt-2 space-y-1 text-[12px] lg:mt-3 lg:space-y-2 lg:text-[13px]"><p>Overview</p><p>Inventory</p><p>Posts</p><p>Profile</p></div>
+          </div>
+          <div className="space-y-1 text-[12px] md:pt-9 lg:space-y-2 lg:text-[13px]"><p>Analytics</p><p>Contact</p></div>
+          <div>
+            <p className="text-[15px] font-bold lg:text-[20px]">Support</p>
+            <div className="mt-2 space-y-1 text-[12px] lg:mt-3 lg:space-y-2 lg:text-[13px]"><p>Help Center</p><p>Security</p><p>Terms of Service</p></div>
+          </div>
+        </div>
+        <div className="mx-auto w-full max-w-[1400px] px-4 py-2 border-t border-[#d49b22] flex items-center justify-between gap-3 text-[10px] lg:px-10 lg:py-3 lg:text-[11px]"><p>© 2026 GOLO Dashboard. All rights reserved.</p></div>
+      </footer>
 
       {/* Logout Confirmation Modal */}
       {showLogoutConfirm && (

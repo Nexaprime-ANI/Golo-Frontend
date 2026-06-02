@@ -230,9 +230,10 @@ function CategoryBarContent({ variant = "choja", preferredCategories = [] }) {
     <>
       {/* MAIN BAR */}
       <div ref={wrapperRef} style={{ width: "100%", background: variant === "golocal" ? "linear-gradient(180deg, #ffffff 0%, #fbfbfb 100%)" : "#fff", borderBottom: "1px solid #e5e7eb", position: "sticky", top: 0, zIndex: 100, boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
-        <div style={{ maxWidth: "1440px", margin: "0 auto", display: "flex", alignItems: "center", minHeight: variant === "golocal" ? "64px" : "56px", padding: variant === "golocal" ? "8px 24px" : "0 24px", gap: "10px" }}>
+        <div className="golo-category-shell" style={{ maxWidth: "1440px", margin: "0 auto", display: "flex", alignItems: "center", minHeight: variant === "golocal" ? "64px" : "56px", padding: variant === "golocal" ? "8px 24px" : "0 24px", gap: "10px" }}>
 
           <div
+            className={variant === "golocal" ? "golo-category-row" : "choja-category-row"}
             style={{
               flex: 1,
               display: variant === "golocal" ? "grid" : "flex",
@@ -255,6 +256,7 @@ function CategoryBarContent({ variant = "choja", preferredCategories = [] }) {
                 }}
               >
                 <button
+                  className={variant === "golocal" ? "golo-category-pill" : "choja-category-pill"}
                   ref={(el) => (buttonRefs.current[cat.name] = el)}
                   onClick={() => handleCategoryClick(cat)}
                   style={{
@@ -387,7 +389,7 @@ function CategoryBarContent({ variant = "choja", preferredCategories = [] }) {
             style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }}
             onClick={(e) => { if (e.target === e.currentTarget) setShowAllModal(false); }}
           >
-            <div style={{ background: "#fff", borderRadius: "24px", padding: "32px", width: "90%", maxWidth: "720px", maxHeight: "80vh", overflowY: "auto", boxShadow: "0 24px 80px rgba(0,0,0,0.2)" }}>
+            <div className="golo-category-modal" style={{ background: "#fff", borderRadius: "24px", padding: "32px", width: "90%", maxWidth: "720px", maxHeight: "80vh", overflowY: "auto", boxShadow: "0 24px 80px rgba(0,0,0,0.2)" }}>
 
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
                 <h3 style={{ fontSize: "20px", fontWeight: 800, margin: 0 }}>All Categories</h3>

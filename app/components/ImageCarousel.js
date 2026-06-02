@@ -4,6 +4,43 @@ import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
+function isLocalUri(src) {
+  return typeof src === "string" && (
+    src.startsWith("file:") || src.startsWith("blob:") || src.startsWith("data:")
+  );
+}
+
+function SafeImage({
+  src,
+  alt,
+  fill = false,
+  className = "",
+  style,
+  priority,
+  quality,
+  sizes,
+  ...rest
+}) {
+  if (isLocalUri(src)) {
+    const inlineStyle = fill
+      ? { width: "100%", height: "100%", objectFit: "cover", display: "block", ...(style || {}) }
+      : { display: "block", ...(style || {}) };
+
+    return <img src={src} alt={alt} className={className} style={inlineStyle} {...rest} />;
+  }
+
+  return (
+    <Image
+      src={src || "/images/deal2.avif"}
+      alt={alt}
+      fill={fill}
+      className={className}
+      style={style}
+      {...rest}
+    />
+  );
+}
+
 export default function ImageCarousel({ images = [], alt = "Product" }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -90,7 +127,7 @@ export default function ImageCarousel({ images = [], alt = "Product" }) {
       >
         {/* Main Image */}
         <div className="relative w-full h-full">
-          <Image
+          <SafeImage
             src={currentImage}
             alt={`${alt} - Image ${currentIndex + 1}`}
             fill

@@ -26,6 +26,7 @@ function LocationPickerContent({ isOpen, onClose, onLocationSelect, initialLocat
   const [loading, setLoading] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [showResults, setShowResults] = useState(false);
+  const [searchMessage, setSearchMessage] = useState("");
   const [mapReady, setMapReady] = useState(false);
   const [leafletLoaded, setLeafletLoaded] = useState(false);
   const searchTimeoutRef = useRef(null);
@@ -155,38 +156,44 @@ function LocationPickerContent({ isOpen, onClose, onLocationSelect, initialLocat
 
   // Handle search with debounce for real-time suggestions
   async function performSearch(query) {
-    if (!query || !query.trim()) {
+    const trimmedQuery = query?.trim() || "";
+
+    if (!trimmedQuery) {
       console.log("❌ [performSearch] Empty query");
       setSearchResults([]);
+      setSearchMessage("");
       setShowResults(false);
       return;
     }
 
-    console.log("🔎 [performSearch] Starting search for:", query);
+    console.log("🔎 [performSearch] Starting search for:", trimmedQuery);
     setLoading(true);
+    setShowResults(true);
+    setSearchMessage(`Searching for "${trimmedQuery}"...`);
     
     try {
       console.log("⏳ [performSearch] Calling searchLocations API");
-      const results = await searchLocations(query, {
+      const results = await searchLocations(trimmedQuery, {
         proximity: selectedLocation || getIndiaCenter(),
       });
+      const normalizedResults = Array.isArray(results) ? results : [];
       
-      console.log("📊 [performSearch] Got results:", results?.length || 0);
+      console.log("📊 [performSearch] Got results:", normalizedResults.length);
       
-      if (results && results.length > 0) {
-        console.log("✅ [performSearch] Found", results.length, "locations");
+      if (normalizedResults.length > 0) {
+        console.log("✅ [performSearch] Found", normalizedResults.length, "locations");
         console.log("🎯 [performSearch] Setting search results and showing dropdown");
-        setSearchResults(results);
-        setShowResults(true);
+        setSearchResults(normalizedResults);
+        setSearchMessage("");
       } else {
         console.log("⚠️  [performSearch] No results found");
         setSearchResults([]);
-        setShowResults(false);
+        setSearchMessage(`No locations found for "${trimmedQuery}". Try a broader city or area name.`);
       }
     } catch (error) {
       console.error("❌ [performSearch] Exception:", error?.message || error);
       setSearchResults([]);
-      setShowResults(false);
+      setSearchMessage(`Search failed for "${trimmedQuery}". Please try again.`);
     } finally {
       setLoading(false);
       console.log("✔️  [performSearch] Complete");
@@ -216,6 +223,7 @@ function LocationPickerContent({ isOpen, onClose, onLocationSelect, initialLocat
       // Clear results if less than 3 characters
       console.log("❌ [handleSearchInputChange] Query too short, clearing results");
       setSearchResults([]);
+      setSearchMessage("");
       setShowResults(false);
     }
   }
@@ -305,19 +313,25 @@ function LocationPickerContent({ isOpen, onClose, onLocationSelect, initialLocat
         </div>
 
         {/* Search Results Dropdown - Separate Layer Above Map */}
-        {showResults && searchResults && searchResults.length > 0 && (
+        {showResults && (
           <div className="absolute left-6 right-6 top-[108px] bg-white border border-[#ddd] rounded-[8px] shadow-2xl max-h-[300px] overflow-y-auto z-[9999]">
             {console.log("🎯 [render] Rendering", searchResults.length, "results in fixed layer")}
-            {searchResults.map((location, idx) => (
-              <button
-                key={location.id}
-                onClick={() => selectFromResults(location)}
-                className="w-full text-left px-4 py-3 hover:bg-[#f5f5f5] border-b border-[#eee] last:border-b-0 transition active:bg-[#e8e8e8]"
-              >
-                <p className="text-[13px] font-semibold text-[#1f1f1f]">{location.name}</p>
-                <p className="text-[11px] text-[#999] mt-1">{location.displayName}</p>
-              </button>
-            ))}
+            {searchResults.length > 0 ? (
+              searchResults.map((location, idx) => (
+                <button
+                  key={location.id || `${location.name}-${idx}`}
+                  onClick={() => selectFromResults(location)}
+                  className="w-full text-left px-4 py-3 hover:bg-[#f5f5f5] border-b border-[#eee] last:border-b-0 transition active:bg-[#e8e8e8]"
+                >
+                  <p className="text-[13px] font-semibold text-[#1f1f1f]">{location.name}</p>
+                  <p className="text-[11px] text-[#999] mt-1">{location.displayName}</p>
+                </button>
+              ))
+            ) : (
+              <div className="px-4 py-3 text-[12px] text-[#666]">
+                {searchMessage || "Start typing to search for a location."}
+              </div>
+            )}
           </div>
         )}
 

@@ -340,18 +340,30 @@ export default function MerchantQRScannerPage() {
 
   return (
     <div className="min-h-screen bg-[#ececec]">
+      <style>{`
+        @media (max-width: 767px) {
+          #qr-reader,
+          #qr-reader video,
+          #qr-reader canvas {
+            max-height: 260px !important;
+          }
+          #qr-reader video {
+            object-fit: cover !important;
+          }
+        }
+      `}</style>
       <MerchantNavbar activeKey="redeem" />
 
-      <main className="w-full max-w-[1200px] mx-auto px-6 py-8">
-        <section className="rounded-[12px] border border-[#d5d5d5] bg-white p-8 shadow-sm">
-          <h1 className="text-[42px] font-semibold leading-none text-[#1e1e1e]">Scan Voucher QR Code</h1>
+      <main className="w-full max-w-[1200px] mx-auto overflow-hidden px-3 py-3 md:px-6 md:py-8">
+        <section className="overflow-hidden rounded-[12px] border border-[#d5d5d5] bg-white p-3 shadow-sm md:p-8">
+          <h1 className="text-[26px] font-semibold leading-none text-[#1e1e1e] md:text-[42px]">Scan Voucher QR Code</h1>
           <p className="mt-3 text-[13px] text-[#6f6f6f]">
             Use your device camera to scan customer voucher QR codes and redeem them.
           </p>
 
-          <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_1fr]">
+          <div className="mt-4 grid min-w-0 gap-4 md:mt-8 md:gap-8 lg:grid-cols-[1fr_1fr]">
             {/* QR SCANNER */}
-            <div className="rounded-[12px] border-2 border-dashed border-[#e0e0e0] p-6 bg-[#fafafa]">
+            <div className="min-w-0 rounded-[12px] border-2 border-dashed border-[#e0e0e0] p-3 bg-[#fafafa] md:p-6">
               <p className="text-[14px] font-bold text-[#1e1e1e] mb-4">Camera Scanner</p>
               
               {!isManualEntry ? (
@@ -359,8 +371,7 @@ export default function MerchantQRScannerPage() {
                   {cameraStatus === "inactive" && (
                     <button
                       onClick={requestCameraPermission}
-                      className="w-full py-8 rounded-[8px] bg-black border-2 border-dashed border-[#555] text-white text-[14px] font-semibold hover:bg-gray-900 flex flex-col items-center justify-center"
-                      style={{ aspectRatio: "1" }}
+                      className="w-full min-h-[170px] rounded-[8px] bg-black border-2 border-dashed border-[#555] text-white text-[14px] font-semibold hover:bg-gray-900 flex flex-col items-center justify-center md:min-h-[220px] md:py-8"
                     >
                       📷 Enable Camera
                     </button>
@@ -370,11 +381,10 @@ export default function MerchantQRScannerPage() {
                     <>
                       <div 
                         id="qr-reader"
-                        className="relative overflow-hidden rounded-[8px] mx-auto"
+                        className="relative h-[260px] overflow-hidden rounded-[8px] mx-auto md:h-[400px]"
                         style={{ 
                           width: "100%",
                           maxWidth: "400px",
-                          height: "400px",
                           backgroundColor: "#000",
                           display: "flex",
                           alignItems: "center",

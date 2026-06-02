@@ -103,29 +103,29 @@ export default function MerchantBannersPage() {
             </p>
           </section>
 
-          <section className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            <div className="rounded-[12px] border border-[#e2e2e2] bg-white px-4 py-4 flex items-center justify-between">
+          <section className="flex gap-2 md:grid md:grid-cols-3 md:gap-5">
+            <div className="flex-1 rounded-[12px] border border-[#e2e2e2] bg-white px-2 py-3 flex min-w-0 items-center justify-between md:px-4 md:py-4">
               <div>
-                <p className="text-[11px] text-[#666]">Total Banners</p>
-                <p className="text-[34px] font-semibold leading-none mt-1">{summary.total}</p>
+                <p className="text-[9px] text-[#666] md:text-[11px]">Total Banners</p>
+                <p className="text-[22px] font-semibold leading-none mt-1 md:text-[34px]">{summary.total}</p>
               </div>
               <div className="h-10 w-10 rounded-full bg-[#fef5e2] text-[#efb02e] flex items-center justify-center">
                 <Megaphone size={17} />
               </div>
             </div>
 
-            <div className="rounded-[12px] border border-[#e2e2e2] bg-white px-4 py-4 flex items-center justify-between">
+            <div className="flex-1 rounded-[12px] border border-[#e2e2e2] bg-white px-2 py-3 flex min-w-0 items-center justify-between md:px-4 md:py-4">
               <div>
-                <p className="text-[11px] text-[#666]">Active Promotions</p>
-                <p className="text-[34px] font-semibold leading-none mt-1">{summary.active}</p>
+                <p className="text-[9px] text-[#666] md:text-[11px]">Active Promotions</p>
+                <p className="text-[22px] font-semibold leading-none mt-1 md:text-[34px]">{summary.active}</p>
               </div>
               <div className="h-10 w-10 rounded-full bg-[#ecf8f0] text-[#2cb56e] flex items-center justify-center text-[16px]">◎</div>
             </div>
 
-            <div className="rounded-[12px] border border-[#e2e2e2] bg-white px-4 py-4 flex items-center justify-between">
+            <div className="flex-1 rounded-[12px] border border-[#e2e2e2] bg-white px-2 py-3 flex min-w-0 items-center justify-between md:px-4 md:py-4">
               <div>
-                <p className="text-[11px] text-[#666]">Promotion Spend</p>
-                <p className="text-[34px] font-semibold leading-none mt-1">Rs. {summary.spend}</p>
+                <p className="text-[9px] text-[#666] md:text-[11px]">Promotion Spend</p>
+                <p className="text-[16px] font-semibold leading-none mt-1 md:text-[34px]">Rs. {summary.spend}</p>
               </div>
               <div className="h-10 w-10 rounded-full bg-[#f4f4f1] text-[#f0aa19] flex items-center justify-center text-[20px]">Rs</div>
             </div>
@@ -227,22 +227,22 @@ export default function MerchantBannersPage() {
         </div>
       </main>
 
-      <footer className="bg-[#f0b330] text-[#1b1b1b] px-4 lg:px-8 py-7 mt-6">
-        <div className="max-w-[1500px] mx-auto flex flex-col lg:flex-row gap-8 lg:gap-12 items-start justify-between">
+      <footer className="bg-[#e8ad2f] border-t border-[#d49b22] text-[#1b1b1b] px-4 py-4 lg:bg-[#f0b330] lg:px-8 lg:py-7 mt-4 lg:mt-6">
+        <div className="max-w-[1500px] mx-auto flex flex-col lg:flex-row gap-4 lg:gap-12 items-start justify-between">
           <div className="max-w-[240px]">
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2 mb-2 lg:mb-4">
               <div className="w-8 h-8 bg-white rounded-sm flex items-center justify-center font-bold text-[#157a4f]">G</div>
               <span className="text-[18px] font-semibold text-[#157a4f]">GOLO</span>
             </div>
             <p className="text-[10px] leading-[1.35] text-[#fff8de] max-w-[150px]">
-              The all-in-one management platform for modern businesses. Empowering growth through analytics and intuitive product management.
+              The all-in-one management platform for modern businesses.
             </p>
           </div>
 
-          <div className="grid grid-cols-3 gap-14 lg:gap-20 text-[10px] text-[#6b520f]">
+          <div className="grid grid-cols-3 gap-6 lg:gap-20 text-[10px] text-[#6b520f]">
             <div>
-              <p className="font-semibold text-[#1b1b1b] mb-3">Links</p>
-              <ul className="space-y-2">
+              <p className="font-semibold text-[#1b1b1b] mb-2 lg:mb-3">Links</p>
+              <ul className="space-y-1 lg:space-y-2">
                 <li>Overview</li>
                 <li>Inventory</li>
                 <li>Posts</li>
@@ -250,15 +250,15 @@ export default function MerchantBannersPage() {
               </ul>
             </div>
             <div>
-              <p className="font-semibold text-[#1b1b1b] mb-3">&nbsp;</p>
-              <ul className="space-y-2">
+              <p className="font-semibold text-[#1b1b1b] mb-2 lg:mb-3">&nbsp;</p>
+              <ul className="space-y-1 lg:space-y-2">
                 <li>Analytics</li>
                 <li>Contact</li>
               </ul>
             </div>
             <div>
-              <p className="font-semibold text-[#1b1b1b] mb-3">Support</p>
-              <ul className="space-y-2">
+              <p className="font-semibold text-[#1b1b1b] mb-2 lg:mb-3">Support</p>
+              <ul className="space-y-1 lg:space-y-2">
                 <li>Help Center</li>
                 <li>Security</li>
                 <li>Terms of Service</li>

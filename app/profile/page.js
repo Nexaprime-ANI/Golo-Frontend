@@ -380,7 +380,9 @@ export default function ProfilePage() {
       <div className="min-h-screen bg-[#f4f4f4]">
         <div className="w-full px-0 py-0">
           <div className="grid lg:grid-cols-[250px_1fr] min-h-[760px]">
-            <GolocalProfileSidebar active="profile" />
+            <div className="hidden lg:block">
+              <GolocalProfileSidebar active="profile" />
+            </div>
 
             <main className="p-5 lg:p-8 space-y-5">
                 {editSuccess && (

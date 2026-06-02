@@ -12,7 +12,6 @@ import {
   getPublicMerchantProducts,
   getPublicMerchantProfile,
   getPublicMerchantStoreLocation,
-  getUserById,
 } from "../../lib/api";
 
 // Dynamically import Leaflet map
@@ -89,11 +88,11 @@ function NearbyStoreContent() {
   const [error, setError] = useState("");
   const [merchantId, setMerchantId] = useState(null);
 
-  // Read merchantId from sessionStorage first, fallback to searchParams
+  // Prefer the URL so direct links are never overridden by stale session state.
   useEffect(() => {
     const stored = sessionStorage.getItem("merchantId");
     const fromUrl = searchParams.get("merchantId");
-    const id = stored || fromUrl;
+    const id = fromUrl || stored;
     
     if (id) {
       setMerchantId(id);
@@ -148,52 +147,67 @@ function NearbyStoreContent() {
         setLoading(true);
         setError("");
 
-        const [userRes, offersRes] = await Promise.all([
-          getUserById(merchantId),
-          getNearbyOffers({ limit: 100 }),
-        ]);
+        const publicProfileRes = await getPublicMerchantProfile(merchantId);
 
-        if (!userRes?.data) {
+        if (!publicProfileRes?.data) {
           setError("Store not found");
           setLoading(false);
           return;
         }
 
-        const targetMerchantId = normalizeId(merchantId);
+        const profileData = publicProfileRes.data;
+        const canonicalMerchantId = normalizeId(
+          profileData?.userId || profileData?.merchantId || merchantId
+        );
+        const acceptedMerchantIds = new Set(
+          [
+            merchantId,
+            canonicalMerchantId,
+            profileData?._id,
+            profileData?.id,
+          ]
+            .map(normalizeId)
+            .filter(Boolean)
+        );
+
+        const offersRes = await getNearbyOffers({ limit: 100 });
         const allOffers = extractOffers(offersRes);
         const merchantOffers = allOffers.filter((offer) => {
           const offerMerchantId = normalizeId(
             offer?.merchant?.merchantId ||
+              offer?.merchant?.userId ||
               offer?.merchantId ||
               offer?.merchant?._id ||
               offer?.merchant?.id ||
               offer?.userId,
           );
-          return offerMerchantId === targetMerchantId;
+          return acceptedMerchantIds.has(offerMerchantId);
         });
         setOffers(merchantOffers);
 
         const firstOfferMerchant = merchantOffers[0]?.merchant || null;
         const mergedMerchant = {
-          ...userRes.data,
-          name: firstOfferMerchant?.name || userRes.data?.name,
-          profilePhoto: firstOfferMerchant?.profilePhoto || userRes.data?.profilePhoto,
+          ...profileData,
+          name: profileData?.storeName || firstOfferMerchant?.name || profileData?.name,
+          profilePhoto: profileData?.profilePhoto || firstOfferMerchant?.profilePhoto,
           shopPhoto:
-            userRes.data?.shopPhoto ||
-            userRes.data?.merchantProfile?.shopPhoto ||
+            profileData?.shopPhoto ||
+            profileData?.merchantProfile?.shopPhoto ||
             firstOfferMerchant?.shopPhoto ||
             "",
-          merchantProfile: userRes.data?.merchantProfile || null,
+          merchantProfile: profileData?.merchantProfile || profileData,
           profile: {
-            ...(userRes.data?.profile || {}),
+            ...(profileData?.profile || {}),
             address:
-              userRes.data?.profile?.address ||
-              userRes.data?.merchantProfile?.storeLocation ||
+              profileData?.profile?.address ||
+              profileData?.storeLocation ||
+              profileData?.merchantProfile?.storeLocation ||
               firstOfferMerchant?.address ||
               "",
             phone:
-              userRes.data?.profile?.phone ||
-              userRes.data?.merchantProfile?.contactNumber ||
+              profileData?.profile?.phone ||
+              profileData?.contactNumber ||
+              profileData?.merchantProfile?.contactNumber ||
               "",
           },
         };
@@ -220,23 +234,7 @@ function NearbyStoreContent() {
         setLocation(null);
 
         try {
-          const publicProfileRes = await getPublicMerchantProfile(merchantId);
-          if (publicProfileRes?.data) {
-            setMerchant((prev) => ({
-              ...prev,
-              ...publicProfileRes.data,
-              merchantProfile: publicProfileRes.data?.merchantProfile || prev?.merchantProfile || null,
-              profile: {
-                ...(prev?.profile || {}),
-                ...(publicProfileRes.data?.profile || {}),
-              },
-            }));
-          }
-        } catch {
-        }
-
-        try {
-          const locationRes = await getPublicMerchantStoreLocation(merchantId);
+          const locationRes = await getPublicMerchantStoreLocation(canonicalMerchantId);
           if (locationRes?.data) {
             setLocation(locationRes.data);
           }
@@ -244,7 +242,7 @@ function NearbyStoreContent() {
         }
 
         try {
-          const productsRes = await getPublicMerchantProducts(merchantId, { limit: 100 });
+          const productsRes = await getPublicMerchantProducts(canonicalMerchantId, { limit: 100 });
           const publicProducts = extractProducts(productsRes);
           if (publicProducts.length > 0) {
             setProducts(publicProducts);
@@ -333,7 +331,7 @@ function NearbyStoreContent() {
         </p>
 
         {/* Store Header */}
-        <h1 className="mt-3 text-3xl lg:text-5xl font-bold leading-none text-[#1f2329]">
+        <h1 className="mt-3 text-3xl lg:text-5xl font-bold leading-tight lg:leading-none text-[#1f2329]">
           {merchant?.name || "Store"}
         </h1>
         <p className="mt-2 text-sm lg:text-base text-[#67707b]">
@@ -352,7 +350,7 @@ function NearbyStoreContent() {
             </span>
           </div>
 
-          <span className="text-[#9ca3ad]">|</span>
+          <span className="hidden text-[#9ca3ad] sm:inline">|</span>
 
           <span>
             {/* Location {resolvedPhone && <span className="ml-2">• {resolvedPhone}</span>} */}
@@ -375,7 +373,7 @@ function NearbyStoreContent() {
           </div>
 
           {/* Store Info Card */}
-          <aside className="rounded-2xl border border-[#d8dce3] bg-white p-6 shadow-sm">
+          <aside className="rounded-2xl border border-[#d8dce3] bg-white p-4 shadow-sm sm:p-6">
             <h2 className="text-2xl font-bold text-[#1f2329] mb-4">Store Information</h2>
             
             <div className="space-y-3 text-sm text-[#5f6974] border-b border-[#e5e8ec] pb-4 mb-4">
@@ -418,7 +416,7 @@ function NearbyStoreContent() {
                   </p>
                 </div>
                 {hasMapLocation ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-[#ecf8f1] px-3 py-1 text-[11px] font-semibold text-[#157a4f]">
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#ecf8f1] px-3 py-1 text-[11px] font-semibold text-[#157a4f]">
                     <MapPin size={12} />
                     Live Pin
                   </span>
@@ -470,9 +468,9 @@ function NearbyStoreContent() {
                       </div>
 
                       <div className="-mx-4 px-4 overflow-x-auto">
-                        <div className="flex gap-5 w-max">
+                        <div className="flex gap-4 w-max sm:gap-5">
                           {offers.slice(0, 8).map((offer, idx) => (
-                            <div key={offer?.offerId || offer?._id || `popular-offer-${idx}`} className="flex-none min-w-[280px]">
+                            <div key={offer?.offerId || offer?._id || `popular-offer-${idx}`} className="flex-none min-w-[calc(100vw-4rem)] sm:min-w-[280px]">
                               <div
                                 className="group bg-white rounded-2xl border border-[#f1f5f9] overflow-hidden hover:shadow-lg hover:border-[#157a4f] transition-all duration-300 flex flex-col cursor-pointer h-full"
                                 onClick={() => router.push(`/nearby-deals/deal?offerId=${offer.offerId}`)}
@@ -523,9 +521,9 @@ function NearbyStoreContent() {
                       </div>
 
                       <div className="-mx-4 px-4 overflow-x-auto">
-                        <div className="flex gap-5 w-max">
+                        <div className="flex gap-4 w-max sm:gap-5">
                           {products.map((product, idx) => (
-                            <div key={product?._id || product?.productId || product?.id || `${product?.name || 'product'}-${idx}`} className="flex-none min-w-[260px]">
+                            <div key={product?._id || product?.productId || product?.id || `${product?.name || 'product'}-${idx}`} className="flex-none min-w-[calc(100vw-4rem)] sm:min-w-[260px]">
                               <div className="group bg-white rounded-2xl border border-[#f1f5f9] overflow-hidden hover:shadow-lg hover:border-[#157a4f] transition-all duration-300 flex flex-col h-full">
                                 <div className="relative h-40 overflow-hidden bg-[#f8fafc]">
                                   <Image
@@ -584,9 +582,9 @@ function NearbyStoreContent() {
                       </div>
 
                       <div className="-mx-4 px-4 overflow-x-auto">
-                        <div className="flex gap-5 w-max">
+                        <div className="flex gap-4 w-max sm:gap-5">
                           {offers.slice(1).map((offer, idx) => (
-                            <div key={offer?.offerId || offer?._id || `offer-${idx}`} className="flex-none min-w-[280px]">
+                            <div key={offer?.offerId || offer?._id || `offer-${idx}`} className="flex-none min-w-[calc(100vw-4rem)] sm:min-w-[280px]">
                               <div
                                 onClick={() => router.push(`/nearby-deals/deal?offerId=${offer.offerId}`)}
                                 className="group bg-white rounded-2xl border border-[#f1f5f9] overflow-hidden hover:shadow-lg hover:border-[#4a5fc1] transition-all duration-300 flex flex-col cursor-pointer h-full"

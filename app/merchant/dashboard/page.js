@@ -125,29 +125,29 @@ export default function MerchantDashboardPage() {
     <div className="min-h-screen bg-[#ececec] text-[#1b1b1b]" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
       <MerchantNavbar activeKey="dashboard" />
 
-      <main className="w-full px-8 lg:px-10 py-6">
-        <div className="mx-auto w-full max-w-[1400px] space-y-5">
-          <section className="rounded-[12px] border border-[#d5d5d5] bg-white px-6 py-5">
+      <main className="w-full px-4 py-4 lg:px-10 lg:py-6">
+        <div className="mx-auto w-full max-w-[1400px] space-y-4 lg:space-y-5">
+          <section className="rounded-[12px] border border-[#d5d5d5] bg-white px-4 py-4 lg:px-6 lg:py-5">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="flex items-start gap-4">
-                <div className="h-14 w-14 rounded-full overflow-hidden border border-[#dadada]">
+                <div className="h-12 w-12 rounded-full overflow-hidden border border-[#dadada] lg:h-14 lg:w-14">
                   <Image src="/images/deal2.avif" alt="Moon Cafe" width={56} height={56} className="h-full w-full object-cover" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-[9px] text-[#737373]">Open Now • Last updated {Math.floor((new Date() - lastUpdated) / 60000)} mins ago</p>
-                  <h1 className="text-[44px] leading-none font-bold text-[#1f1f1f] mt-1">{merchantProfile?.shopName || merchantProfile?.storeName || "My Store"}</h1>
-                  <div className="mt-2 flex items-center gap-6 text-[14px] text-[#424242]">
-                    <span className="inline-flex items-center gap-1"><ShoppingBag size={14} className="text-[#157a4f]" /> <span className="font-bold text-[30px] leading-none">{summary?.stats?.totalOrders || 0}</span> Total Orders</span>
-                    <span className="inline-flex items-center gap-1"><Star size={14} className="text-[#e9aa1d]" /> <span className="font-bold text-[30px] leading-none">{summary?.stats?.averageRating || 0}</span> Store Rating</span>
+                  <h1 className="mt-1 truncate text-[28px] leading-none font-bold text-[#1f1f1f] lg:text-[44px]">{merchantProfile?.shopName || merchantProfile?.storeName || "My Store"}</h1>
+                  <div className="mt-2 flex flex-wrap items-center gap-3 text-[12px] text-[#424242] lg:gap-6 lg:text-[14px]">
+                    <span className="inline-flex items-center gap-1"><ShoppingBag size={14} className="text-[#157a4f]" /> <span className="font-bold text-[22px] leading-none lg:text-[30px]">{summary?.stats?.totalOrders || 0}</span> Total Orders</span>
+                    <span className="inline-flex items-center gap-1"><Star size={14} className="text-[#e9aa1d]" /> <span className="font-bold text-[22px] leading-none lg:text-[30px]">{summary?.stats?.averageRating || 0}</span> Store Rating</span>
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 mt-1">
-                <button className="h-10 px-4 rounded-[8px] border border-[#d5d5d5] bg-white text-[12px] font-semibold text-[#343434] inline-flex items-center gap-2">
+              <div className="flex w-full items-center gap-2 mt-1 sm:w-auto">
+                <button className="h-9 flex-1 px-3 rounded-[8px] border border-[#d5d5d5] bg-white text-[11px] font-semibold text-[#343434] inline-flex items-center justify-center gap-2 lg:h-10 lg:flex-none lg:px-4 lg:text-[12px]">
                   <Download size={13} /> Export Reports
                 </button>
-                <button onClick={() => router.push("/merchant/add-new-listing")} className="h-10 px-4 rounded-[8px] bg-[#1f8f4f] text-white text-[12px] font-semibold inline-flex items-center gap-2">
+                <button onClick={() => router.push("/merchant/add-new-listing")} className="h-9 flex-1 px-3 rounded-[8px] bg-[#1f8f4f] text-white text-[11px] font-semibold inline-flex items-center justify-center gap-2 lg:h-10 lg:flex-none lg:px-4 lg:text-[12px]">
                   <Plus size={13} /> Add New Listing
                 </button>
               </div>
@@ -155,11 +155,11 @@ export default function MerchantDashboardPage() {
           </section>
 
           <section className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px] gap-5">
-            <div className="rounded-[12px] border border-[#d8d8d8] bg-white p-5">
-              <div className="flex items-start justify-between">
+            <div className="rounded-[12px] border border-[#d8d8d8] bg-white p-4 lg:p-5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <div className="flex items-center gap-3">
-                    <h2 className="text-[28px] font-bold leading-none">Shop Redemptions ↗</h2>
+                    <h2 className="text-[21px] font-bold leading-none lg:text-[28px]">Shop Redemptions ↗</h2>
                     <span className="inline-flex items-center gap-1 rounded-full bg-[#e9f7ee] px-2.5 py-1 text-[10px] font-semibold text-[#1f8f4f]">
                       <span className="h-2 w-2 rounded-full bg-[#1f8f4f]" /> Live
                     </span>
@@ -179,7 +179,7 @@ export default function MerchantDashboardPage() {
                   <p>Live merchant-side redemption activity</p>
                   <p>Today: <span className="font-semibold text-[#1f8f4f]">{redemptionTrend.today ?? redemptionValues[redemptionValues.length - 1] ?? 0}</span></p>
                 </div>
-                <svg viewBox="0 0 760 320" className="w-full h-[300px]">
+                <svg viewBox="0 0 760 320" className="h-[190px] w-full lg:h-[300px]">
                   {[280, 220, 160, 100, 40].map((y) => (
                     <g key={y}>
                       <line x1="38" y1={320 - y} x2="740" y2={320 - y} stroke="#d8d8d8" strokeDasharray="4 4" />
@@ -211,18 +211,18 @@ export default function MerchantDashboardPage() {
             <div className="space-y-3">
               <div className="rounded-[10px] border border-[#dce8dd] bg-[#eef6ef] p-4">
                 <p className="text-[10px] uppercase tracking-wide text-[#79927c]">Order Placed</p>
-                <p className="mt-1 text-[46px] font-extrabold leading-none text-[#223322]">{summary?.stats?.totalOrders || 0}</p>
+                <p className="mt-1 text-[34px] font-extrabold leading-none text-[#223322] lg:text-[46px]">{summary?.stats?.totalOrders || 0}</p>
                 <p className="text-[12px] text-[#4a5a4b] mt-1">Last 7 Days <span className="text-[#2e9f5a]">+12%</span></p>
               </div>
 
               <div className="rounded-[10px] border border-[#ebe3cf] bg-[#f8f4e8] p-4">
                 <p className="text-[10px] uppercase tracking-wide text-[#98835a]">Revenue Earned</p>
-                <p className="mt-1 text-[46px] font-extrabold leading-none text-[#4b3913]">₹{summary?.stats?.revenue || 0}</p>
+                <p className="mt-1 text-[34px] font-extrabold leading-none text-[#4b3913] lg:text-[46px]">₹{summary?.stats?.revenue || 0}</p>
                 <p className="text-[12px] text-[#7f6a42] mt-1">Last 7 Days <span className="text-[#9d6a1d]">+8.5%</span></p>
               </div>
 
-              <div className="rounded-[10px] bg-[#f0ab19] p-5 text-white shadow-sm">
-                <p className="text-[34px] font-extrabold leading-none">See your shop as a customer</p>
+              <div className="rounded-[10px] bg-[#f0ab19] p-4 text-white shadow-sm lg:p-5">
+                <p className="text-[24px] font-extrabold leading-none lg:text-[34px]">See your shop as a customer</p>
                 <p className="mt-2 text-[12px] text-[#fff4da]">Open the customer app to see your shop exactly how customers see it. Experience your brand firsthand.</p>
                 <button className="mt-4 h-10 w-full rounded-[8px] bg-white text-[#d18c00] text-[12px] font-semibold">Tap to explore ↗</button>
               </div>
@@ -232,13 +232,13 @@ export default function MerchantDashboardPage() {
           <section className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-5">
             <div className="rounded-[12px] border border-[#d8d8d8] bg-white overflow-hidden">
               <div className="px-4 py-3 border-b border-[#ececec] flex items-center justify-between">
-                <h3 className="text-[31px] font-bold leading-none">Recent Orders</h3>
+                <h3 className="text-[23px] font-bold leading-none lg:text-[31px]">Recent Orders</h3>
                 <button className="text-[12px] font-semibold text-[#1e8b4f]">View All Orders</button>
               </div>
 
               <div className="max-h-[320px] overflow-y-auto">
                 {(summary?.recentOrders || orders).map((order) => (
-                  <div key={order._id || order.id || order.orderNumber} className="px-4 py-3 border-b border-[#f0f0f0] last:border-b-0 flex items-center gap-3">
+                  <div key={order._id || order.id || order.orderNumber} className="px-3 py-3 border-b border-[#f0f0f0] last:border-b-0 flex items-center gap-3 lg:px-4">
                     <div className="h-8 w-8 rounded-full bg-[#ebf8ef] border border-[#cce9d4] text-[#1f8f4f] flex items-center justify-center">
                       <Box size={14} />
                     </div>
@@ -246,11 +246,11 @@ export default function MerchantDashboardPage() {
                       <p className="text-[15px] font-semibold text-[#252525]">Order {order.id || `#${order.orderNumber || String(order._id || '').slice(-6)}`}</p>
                       <p className="text-[11px] text-[#858585]">{order.time || `Placed ${new Date(order.placedAt).toLocaleString()}`}</p>
                     </div>
-                    <div className="text-right">
+                    <div className="ml-auto text-right">
                       <p className="text-[16px] font-bold text-[#202020]">{typeof order.amount === 'string' ? order.amount : `₹${order.amount || 0}`}</p>
                       <p className="text-[9px] uppercase text-[#8a8a8a]">Amount</p>
                     </div>
-                    <div className="text-right">
+                    <div className="hidden text-right sm:block">
                       <p className="text-[16px] font-bold text-[#202020]">{order.qty || `${order.itemsCount || 1} items`}</p>
                       <p className="text-[9px] uppercase text-[#8a8a8a]">Quantity</p>
                     </div>
@@ -260,9 +260,9 @@ export default function MerchantDashboardPage() {
               </div>
             </div>
 
-            <div className="rounded-[12px] border border-[#d8d8d8] bg-white p-5">
+            <div className="rounded-[12px] border border-[#d8d8d8] bg-white p-4 lg:p-5">
               <div className="flex items-center justify-between">
-                <h3 className="text-[31px] font-bold leading-none">Latest Reviews</h3>
+                <h3 className="text-[23px] font-bold leading-none lg:text-[31px]">Latest Reviews</h3>
                 <button className="text-[#888]">⋮</button>
               </div>
 
@@ -290,26 +290,26 @@ export default function MerchantDashboardPage() {
         </div>
       </main>
 
-      <footer className="mt-6 bg-[#e8ad2f] border-t border-[#d49b22] text-[#2f2a1f]">
-        <div className="mx-auto w-full max-w-[1400px] px-8 lg:px-10 py-6 grid grid-cols-1 md:grid-cols-4 gap-8">
+      <footer className="mt-4 bg-[#e8ad2f] border-t border-[#d49b22] text-[#2f2a1f] lg:mt-6">
+        <div className="mx-auto w-full max-w-[1400px] px-4 py-4 grid grid-cols-2 gap-4 text-[12px] md:grid-cols-4 lg:px-10 lg:py-6 lg:gap-8 lg:text-base">
           <div>
             <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-[3px] bg-[#0f7d49] text-white text-[26px] font-bold flex items-center justify-center leading-none">G</div>
-              <span className="text-[34px] leading-none font-semibold text-[#0f7d49]">GOLO</span>
+              <div className="h-6 w-6 rounded-[3px] bg-[#0f7d49] text-white text-[20px] font-bold flex items-center justify-center leading-none lg:h-8 lg:w-8 lg:text-[26px]">G</div>
+              <span className="text-[24px] leading-none font-semibold text-[#0f7d49] lg:text-[34px]">GOLO</span>
             </div>
-            <p className="mt-3 text-[12px] max-w-[250px]">The all-in-one management platform for modern businesses. Empowering growth through analytics and intuitive product management.</p>
+            <p className="mt-2 text-[11px] max-w-[250px] lg:mt-3 lg:text-[12px]">The all-in-one management platform for modern businesses.</p>
           </div>
           <div>
-            <p className="text-[20px] font-bold">Links</p>
-            <div className="mt-3 space-y-2 text-[13px]"><p>Overview</p><p>Inventory</p><p>Posts</p><p>Profile</p></div>
+            <p className="text-[15px] font-bold lg:text-[20px]">Links</p>
+            <div className="mt-2 space-y-1 text-[12px] lg:mt-3 lg:space-y-2 lg:text-[13px]"><p>Overview</p><p>Inventory</p><p>Posts</p><p>Profile</p></div>
           </div>
-          <div className="pt-8 md:pt-9 space-y-2 text-[13px]"><p>Analytics</p><p>Contact</p></div>
+          <div className="space-y-1 text-[12px] md:pt-9 lg:space-y-2 lg:text-[13px]"><p>Analytics</p><p>Contact</p></div>
           <div>
-            <p className="text-[20px] font-bold">Support</p>
-            <div className="mt-3 space-y-2 text-[13px]"><p>Help Center</p><p>Security</p><p>Terms of Service</p></div>
+            <p className="text-[15px] font-bold lg:text-[20px]">Support</p>
+            <div className="mt-2 space-y-1 text-[12px] lg:mt-3 lg:space-y-2 lg:text-[13px]"><p>Help Center</p><p>Security</p><p>Terms of Service</p></div>
           </div>
         </div>
-        <div className="mx-auto w-full max-w-[1400px] px-8 lg:px-10 py-3 border-t border-[#d49b22] flex items-center justify-between gap-3 text-[11px]"><p>© 2026 GOLO Dashboard. All rights reserved.</p></div>
+        <div className="mx-auto w-full max-w-[1400px] px-4 py-2 border-t border-[#d49b22] flex items-center justify-between gap-3 text-[10px] lg:px-10 lg:py-3 lg:text-[11px]"><p>© 2026 GOLO Dashboard. All rights reserved.</p></div>
       </footer>
     </div>
   );

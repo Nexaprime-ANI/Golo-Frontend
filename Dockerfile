@@ -4,6 +4,10 @@ FROM node:20-bullseye-slim AS builder
 ENV DEBIAN_FRONTEND=noninteractive
 WORKDIR /app
 
+# Build-time public env vars (baked into the client bundle by Next.js)
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
 # Install build tools for native deps
 RUN apt-get update \
 	&& apt-get install -y --no-install-recommends python3 build-essential git curl ca-certificates \
@@ -19,8 +23,10 @@ RUN npm run build
 # Production image
 FROM node:20-bullseye-slim
 
+ARG NEXT_PUBLIC_API_URL
 ENV NODE_ENV=production
 ENV PORT=3000
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 WORKDIR /app
 
 # Create non-root user

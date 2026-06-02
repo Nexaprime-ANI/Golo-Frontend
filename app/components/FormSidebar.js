@@ -37,7 +37,6 @@ export default function FormSidebar({
       }, 3000);
       return () => clearInterval(id);
     }
-    setCarouselIndex(0);
   }, [templateId, uploadedImages]);
 
   // Dynamic price logic
@@ -107,6 +106,11 @@ export default function FormSidebar({
           categoryDetails?.rent ??
           categoryDetails?.askingPrice ??
           categoryDetails?.rentAmount ??
+          categoryDetails?.pricePerPerson ??
+          categoryDetails?.consultationFee ??
+          categoryDetails?.charges ??
+          categoryDetails?.reward ??
+          categoryDetails?.salary ??
           mobilePrice ??
           monthlyRent ??
           0,

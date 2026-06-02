@@ -14,6 +14,7 @@ import {
   CalendarDays,
   Store,
   MapPin,
+  MoreVertical,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import MerchantNavbar from "../MerchantNavbar";
@@ -123,6 +124,7 @@ function MerchantProfileContent({ user, logout, router, initialTab = "Profile Se
   const [activeTab, setActiveTab] = useState(initialTab);
   const [isEditMode, setIsEditMode] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showMobileTabs, setShowMobileTabs] = useState(false);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -177,13 +179,22 @@ function MerchantProfileContent({ user, logout, router, initialTab = "Profile Se
     setLoyaltyLoading(true);
     getMerchantLoyaltyLeaderboard()
       .then((res) => {
-        let rows = [];
-        if (Array.isArray(res?.data)) {
-          rows = res.data;
-        } else if (Array.isArray(res?.data?.data)) {
-          rows = res.data.data;
-        }
-        setLoyaltyRows(rows);
+        const payload = Array.isArray(res) ? res : res?.data;
+        const rows = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload?.data)
+          ? payload.data
+          : Array.isArray(payload?.rows)
+          ? payload.rows
+          : [];
+
+        const normalizedRows = rows.map((row) => ({
+          ...row,
+          totalPoints: Number(row?.totalPoints ?? row?.points ?? row?.rewardPoints ?? 0),
+          offersClaimed: Number(row?.offersClaimed ?? row?.claimedOffers ?? row?.claims ?? 0),
+        }));
+
+        setLoyaltyRows(normalizedRows);
       })
       .catch(() => {
         setLoyaltyRows([]);
@@ -453,7 +464,51 @@ function MerchantProfileContent({ user, logout, router, initialTab = "Profile Se
 
       <main className="w-full px-8 py-6 lg:px-10">
         <div className="mx-auto w-full max-w-[1400px]">
-          <div className="mb-6 flex flex-wrap items-center justify-end gap-8 text-[12px] font-semibold">
+          <div className="relative mb-4 flex justify-end lg:hidden">
+            <button
+              type="button"
+              onClick={() => setShowMobileTabs((value) => !value)}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-[#d8d8d8] bg-white text-[#157a4f] shadow-sm"
+              aria-label="Merchant profile menu"
+            >
+              <MoreVertical size={20} />
+            </button>
+
+            {showMobileTabs && (
+              <div className="absolute right-0 top-12 z-30 w-56 overflow-hidden rounded-[14px] border border-[#e5e5e5] bg-white py-2 text-[12px] font-semibold shadow-xl">
+                {topTabs.map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => {
+                      setShowMobileTabs(false);
+                      if (tab === "Help") {
+                        router.push("/merchant/help");
+                      } else if (tab === "Logout") {
+                        setShowLogoutConfirm(true);
+                      } else {
+                        setActiveTab(tab);
+                      }
+                    }}
+                    className={`flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-[#f8f8f8] ${
+                      activeTab === tab
+                        ? "text-[#157a4f]"
+                        : tab === "Logout"
+                        ? "text-[#ef4444]"
+                        : "text-[#111]"
+                    }`}
+                  >
+                    <span>{tab}</span>
+                    {activeTab === tab && tab !== "Logout" && (
+                      <span className="h-2 w-2 rounded-full bg-[#157a4f]" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="mb-6 hidden flex-wrap items-center justify-end gap-8 text-[12px] font-semibold lg:flex">
             {topTabs.map((tab) => (
               <button
                 key={tab}
@@ -485,18 +540,18 @@ function MerchantProfileContent({ user, logout, router, initialTab = "Profile Se
 
           {activeTab === "Loyalty Rewards" ? (
             <div className="mx-auto max-w-[1260px] space-y-5">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <div className="flex h-[56px] items-center justify-between rounded-[8px] border border-[#b8bdc6] bg-white px-4">
-                  <p className="text-[13px] font-semibold text-[#1f9b57]">Total Customers</p>
-                  <p className="text-[30px] font-semibold leading-none text-[#1f1f1f]">{loyaltyRows.length}</p>
+              <div className="flex gap-2 sm:grid sm:grid-cols-3 sm:gap-4">
+                <div className="flex h-[62px] flex-1 min-w-0 flex-col justify-center rounded-[8px] border border-[#b8bdc6] bg-white px-2 sm:h-[56px] sm:flex-row sm:items-center sm:justify-between sm:px-4">
+                  <p className="text-[9px] font-semibold text-[#1f9b57] sm:text-[13px]">Total Customers</p>
+                  <p className="text-[22px] font-semibold leading-none text-[#1f1f1f] sm:text-[30px]">{loyaltyRows.length}</p>
                 </div>
-                <div className="flex h-[56px] items-center justify-between rounded-[8px] border border-[#b8bdc6] bg-white px-4">
-                  <p className="text-[13px] font-semibold text-[#f1a61b]">Reward Champs</p>
-                  <p className="text-[30px] font-semibold leading-none text-[#1f1f1f]">{loyaltyRows.slice(0, 3).length}</p>
+                <div className="flex h-[62px] flex-1 min-w-0 flex-col justify-center rounded-[8px] border border-[#b8bdc6] bg-white px-2 sm:h-[56px] sm:flex-row sm:items-center sm:justify-between sm:px-4">
+                  <p className="text-[9px] font-semibold text-[#f1a61b] sm:text-[13px]">Reward Champs</p>
+                  <p className="text-[22px] font-semibold leading-none text-[#1f1f1f] sm:text-[30px]">{loyaltyRows.slice(0, 3).length}</p>
                 </div>
-                <div className="flex h-[56px] items-center justify-between rounded-[8px] border border-[#b8bdc6] bg-white px-4">
-                  <p className="text-[13px] font-semibold text-[#323232]">Reward Points</p>
-                  <p className="text-[30px] font-semibold leading-none text-[#1f1f1f]">
+                <div className="flex h-[62px] flex-1 min-w-0 flex-col justify-center rounded-[8px] border border-[#b8bdc6] bg-white px-2 sm:h-[56px] sm:flex-row sm:items-center sm:justify-between sm:px-4">
+                  <p className="text-[9px] font-semibold text-[#323232] sm:text-[13px]">Reward Points</p>
+                  <p className="text-[22px] font-semibold leading-none text-[#1f1f1f] sm:text-[30px]">
                     {loyaltyRows.reduce((acc, row) => acc + (row.totalPoints || 0), 0)}
                   </p>
                 </div>
@@ -951,24 +1006,24 @@ function MerchantProfileContent({ user, logout, router, initialTab = "Profile Se
         </div>
       )}
 
-      <footer className="mt-6 bg-[#f0b330] px-4 py-7 text-[#1b1b1b] lg:px-8">
-        <div className="mx-auto flex max-w-[1500px] flex-col items-start justify-between gap-8 lg:flex-row lg:gap-12">
+      <footer className="mt-4 bg-[#e8ad2f] border-t border-[#d49b22] px-4 py-4 text-[#1b1b1b] lg:mt-6 lg:bg-[#f0b330] lg:px-8 lg:py-7">
+        <div className="mx-auto flex max-w-[1500px] flex-col items-start justify-between gap-4 lg:flex-row lg:gap-12">
           <div className="max-w-[240px]">
-            <div className="mb-4 flex items-center gap-2">
+            <div className="mb-2 flex items-center gap-2 lg:mb-4">
               <div className="flex h-8 w-8 items-center justify-center rounded-sm bg-white font-bold text-[#157a4f]">
                 G
               </div>
               <span className="text-[18px] font-semibold text-[#157a4f]">GOLO</span>
             </div>
             <p className="max-w-[150px] text-[10px] leading-[1.35] text-[#fff8de]">
-              The all-in-one management platform for modern businesses. Empowering growth through analytics and intuitive product management.
+              The all-in-one management platform for modern businesses.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-8 text-[10px] text-[#6b520f] sm:grid-cols-2 lg:grid-cols-3 lg:gap-20 lg:gap-y-14">
+          <div className="grid grid-cols-3 gap-6 text-[10px] text-[#6b520f] lg:gap-20 lg:gap-y-14">
             <div>
-              <p className="mb-3 font-semibold text-[#1b1b1b]">Links</p>
-              <ul className="space-y-2">
+              <p className="mb-2 font-semibold text-[#1b1b1b] lg:mb-3">Links</p>
+              <ul className="space-y-1 lg:space-y-2">
                 <li>Overview</li>
                 <li>Inventory</li>
                 <li>Posts</li>
@@ -976,15 +1031,15 @@ function MerchantProfileContent({ user, logout, router, initialTab = "Profile Se
               </ul>
             </div>
             <div>
-              <p className="mb-3 font-semibold text-[#1b1b1b]">&nbsp;</p>
-              <ul className="space-y-2">
+              <p className="mb-2 font-semibold text-[#1b1b1b] lg:mb-3">&nbsp;</p>
+              <ul className="space-y-1 lg:space-y-2">
                 <li>Analytics</li>
                 <li>Contact</li>
               </ul>
             </div>
             <div>
-              <p className="mb-3 font-semibold text-[#1b1b1b]">Support</p>
-              <ul className="space-y-2">
+              <p className="mb-2 font-semibold text-[#1b1b1b] lg:mb-3">Support</p>
+              <ul className="space-y-1 lg:space-y-2">
                 <li>Help Center</li>
                 <li>Security</li>
                 <li>Terms of Service</li>
@@ -992,7 +1047,7 @@ function MerchantProfileContent({ user, logout, router, initialTab = "Profile Se
             </div>
           </div>
 
-          <div className="mt-auto flex gap-4 text-[#1877f2] lg:pb-2">
+          <div className="mt-auto flex gap-3 text-[#1877f2] lg:gap-4 lg:pb-2">
             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#f3ba3b] text-[10px] font-bold text-[#1877f2]">f</span>
             <span className="flex h-5 w-5 items-center justify-center rounded-[2px] bg-[#f3ba3b] text-[9px] font-bold text-[#0a66c2]">in</span>
             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#f3ba3b] text-[10px] font-bold text-[#e1306c]">ig</span>
@@ -1000,7 +1055,7 @@ function MerchantProfileContent({ user, logout, router, initialTab = "Profile Se
           </div>
         </div>
 
-        <div className="mx-auto mt-6 flex max-w-[1500px] items-center justify-between text-[9px] text-[#5f4710]">
+        <div className="mx-auto mt-3 flex max-w-[1500px] items-center justify-between text-[9px] text-[#5f4710] lg:mt-6">
           <p>© 2026 GOLO Dashboard. All rights reserved.</p>
           <p>Made with ♥ by V</p>
         </div>

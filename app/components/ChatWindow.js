@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, CheckCheck, Paperclip, Phone, PhoneIncoming, PhoneMissed, PhoneOutgoing, Send, X, MoreVertical } from "lucide-react";
+import { ArrowLeft, Check, CheckCheck, Paperclip, Phone, PhoneIncoming, PhoneMissed, PhoneOutgoing, Send, X, MoreVertical } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import UserReportModal from "../components/UserReportModal";
 
@@ -42,6 +42,7 @@ export default function ChatWindow({
   onTyping,
   onStartCall,
   callState = "idle",
+  onBack,
 }) {
   const [text, setText] = useState("");
   const [attachments, setAttachments] = useState([]);
@@ -102,28 +103,36 @@ export default function ChatWindow({
     <div className="flex flex-col h-full min-h-0 bg-[#F8F6F2] overflow-hidden">
 
       {/* HEADER (Fixed) */}
-      <div className="flex items-center justify-between px-8 py-5 bg-white border-b border-gray-200 shrink-0 sticky top-0 z-10">
-        <div className="flex items-center gap-4">
+      <div className="flex items-center justify-between gap-3 px-4 py-3 bg-white border-b border-gray-200 shrink-0 sticky top-0 z-10 md:px-8 md:py-5">
+        <div className="flex min-w-0 items-center gap-3 md:gap-4">
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#F8F6F2] text-[#157A4F] md:hidden"
+            aria-label="Back to chats"
+          >
+            <ArrowLeft size={18} />
+          </button>
           <img
             src={getAvatarUrl(conversation?.otherUser?.avatar, conversation?.otherUser?.name)}
             width={45}
             height={45}
             alt={conversation?.otherUser?.name || "User"}
-            className="rounded-full object-cover"
+            className="h-10 w-10 shrink-0 rounded-full object-cover md:h-[45px] md:w-[45px]"
           />
-          <div>
-            <h3 className="font-semibold text-lg text-gray-800">
+          <div className="min-w-0">
+            <h3 className="truncate font-semibold text-base text-gray-800 md:text-lg">
               {conversation?.otherUser?.name || "User"}
             </h3>
-            <p className="text-xs text-gray-500 -mt-0.5">
+            <p className="truncate text-xs text-gray-500 -mt-0.5">
               {isOtherUserTyping ? "Typing..." : formatLastSeen(presence)}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-4 relative">
-          <div className="text-xs text-gray-500 text-right">
-            <p>{conversation?.ad?.title || "Ad conversation"}</p>
+        <div className="flex shrink-0 items-center gap-2 relative md:gap-4">
+          <div className="hidden text-xs text-gray-500 text-right sm:block">
+            <p className="max-w-[180px] truncate">{conversation?.ad?.title || "Ad conversation"}</p>
             {conversation?.ad?.price !== undefined && conversation?.ad?.price !== null && (
               <p className="font-semibold text-[#157A4F]">₹{Number(conversation.ad.price).toLocaleString("en-IN")}</p>
             )}
@@ -170,7 +179,7 @@ export default function ChatWindow({
       </div>
 
       {/* SCROLLABLE MESSAGES AREA */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-10 py-8 space-y-6">
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-4 md:px-10 md:py-8 md:space-y-6">
 
         {loading && (
           <div className="text-sm text-gray-500">Loading messages...</div>
@@ -206,7 +215,7 @@ export default function ChatWindow({
           return (
             <div key={message.id} className="space-y-2">
               {isNewAdContext && (
-                <div className="bg-white border border-gray-200 rounded-xl p-3 flex items-center gap-3 shadow-sm max-w-md">
+                <div className="bg-white border border-gray-200 rounded-xl p-3 flex items-center gap-3 shadow-sm max-w-full md:max-w-md">
                   {message.adImage ? (
                     <img
                       src={message.adImage}
@@ -236,7 +245,7 @@ export default function ChatWindow({
                   isMine
                     ? "bg-[#157A4F] text-white ml-auto"
                     : "bg-white border border-gray-200 text-gray-800"
-                } p-4 rounded-2xl w-fit max-w-md shadow-sm`}
+                } p-3 rounded-2xl w-fit max-w-[86vw] shadow-sm md:max-w-md md:p-4`}
               >
                 {message.text ? <p className="whitespace-pre-wrap">{message.text}</p> : null}
 
@@ -300,7 +309,7 @@ export default function ChatWindow({
       </div>
 
       {/* INPUT (Fixed) */}
-      <div className="px-8 py-4 bg-white border-t border-gray-200 shrink-0 sticky bottom-0 z-10">
+      <div className="px-3 py-3 bg-white border-t border-gray-200 shrink-0 sticky bottom-0 z-10 md:px-8 md:py-4">
         {attachments.length > 0 && (
           <div className="mb-3 flex flex-wrap gap-2">
             {attachments.map((file, index) => (
@@ -314,7 +323,7 @@ export default function ChatWindow({
           </div>
         )}
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 md:gap-4">
           <button
             onClick={handleAttachClick}
             className="text-gray-400 hover:text-[#F5B849] transition"
@@ -336,7 +345,7 @@ export default function ChatWindow({
             value={text}
             onChange={onTextChange}
             onKeyDown={onKeyDown}
-            className="flex-1 bg-[#F8F6F2] rounded-full px-6 py-3 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#157A4F]"
+            className="min-w-0 flex-1 bg-[#F8F6F2] rounded-full px-4 py-3 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#157A4F] md:px-6"
           />
 
           <button

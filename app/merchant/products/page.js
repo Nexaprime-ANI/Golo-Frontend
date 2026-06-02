@@ -190,33 +190,33 @@ export default function MerchantProductsPage() {
             </p>
           </section>
 
-          <section className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            <div className="rounded-[12px] border border-[#e2e2e2] bg-white px-4 py-4 flex items-center justify-between">
+          <section className="flex gap-2 md:grid md:grid-cols-3 md:gap-5">
+            <div className="flex-1 rounded-[12px] border border-[#e2e2e2] bg-white px-2 py-3 flex min-w-0 items-center justify-between md:px-4 md:py-4">
               <div>
-                <p className="text-[11px] text-[#666]">Total Products</p>
-                <p className="text-[34px] font-semibold leading-none mt-1">{stats.totalProducts || 0}</p>
+                <p className="text-[9px] text-[#666] md:text-[11px]">Total Products</p>
+                <p className="text-[22px] font-semibold leading-none mt-1 md:text-[34px]">{stats.totalProducts || 0}</p>
               </div>
-              <div className="h-10 w-10 rounded-full bg-[#f4f4f1] text-[#2cb56e] flex items-center justify-center">
+              <div className="hidden h-10 w-10 rounded-full bg-[#f4f4f1] text-[#2cb56e] items-center justify-center sm:flex">
                 <Package size={18} />
               </div>
             </div>
 
-            <div className="rounded-[12px] border border-[#e2e2e2] bg-white px-4 py-4 flex items-center justify-between">
+            <div className="flex-1 rounded-[12px] border border-[#e2e2e2] bg-white px-2 py-3 flex min-w-0 items-center justify-between md:px-4 md:py-4">
               <div>
-                <p className="text-[11px] text-[#666]">Inventory Value</p>
-                <p className="text-[34px] font-semibold leading-none mt-1">{inventoryValueLabel}</p>
+                <p className="text-[9px] text-[#666] md:text-[11px]">Inventory Value</p>
+                <p className="text-[16px] font-semibold leading-none mt-1 md:text-[34px]">{inventoryValueLabel}</p>
               </div>
-              <div className="h-10 w-10 rounded-full bg-[#f4f4f1] text-[#e2a112] flex items-center justify-center">
+              <div className="hidden h-10 w-10 rounded-full bg-[#f4f4f1] text-[#e2a112] items-center justify-center sm:flex">
                 <Wallet size={18} />
               </div>
             </div>
 
-            <div className="rounded-[12px] border border-[#e2e2e2] bg-white px-4 py-4 flex items-center justify-between">
+            <div className="flex-1 rounded-[12px] border border-[#e2e2e2] bg-white px-2 py-3 flex min-w-0 items-center justify-between md:px-4 md:py-4">
               <div>
-                <p className="text-[11px] text-[#666]">Out Of Stock</p>
-                <p className="text-[34px] font-semibold leading-none mt-1">{stats.outOfStockProducts || 0}</p>
+                <p className="text-[9px] text-[#666] md:text-[11px]">Out Of Stock</p>
+                <p className="text-[22px] font-semibold leading-none mt-1 md:text-[34px]">{stats.outOfStockProducts || 0}</p>
               </div>
-              <div className="h-10 w-10 rounded-full bg-[#f7eef0] text-[#f27f9f] flex items-center justify-center">
+              <div className="hidden h-10 w-10 rounded-full bg-[#f7eef0] text-[#f27f9f] items-center justify-center sm:flex">
                 <Package size={18} />
               </div>
             </div>
@@ -349,26 +349,26 @@ export default function MerchantProductsPage() {
         </div>
       </main>
 
-      <footer className="mt-6 bg-[#e8ad2f] border-t border-[#d49b22] text-[#2f2a1f]">
-        <div className="mx-auto w-full max-w-[1400px] px-8 lg:px-10 py-6 grid grid-cols-1 md:grid-cols-4 gap-8">
+      <footer className="mt-4 bg-[#e8ad2f] border-t border-[#d49b22] text-[#2f2a1f] lg:mt-6">
+        <div className="mx-auto w-full max-w-[1400px] px-4 py-4 grid grid-cols-2 gap-4 text-[12px] md:grid-cols-4 lg:px-10 lg:py-6 lg:gap-8 lg:text-base">
           <div>
             <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-[3px] bg-[#0f7d49] text-white text-[26px] font-bold flex items-center justify-center leading-none">G</div>
-              <span className="text-[34px] leading-none font-semibold text-[#0f7d49]">GOLO</span>
+              <div className="h-6 w-6 rounded-[3px] bg-[#0f7d49] text-white text-[20px] font-bold flex items-center justify-center leading-none lg:h-8 lg:w-8 lg:text-[26px]">G</div>
+              <span className="text-[24px] leading-none font-semibold text-[#0f7d49] lg:text-[34px]">GOLO</span>
             </div>
-            <p className="mt-3 text-[12px] max-w-[250px]">The all-in-one management platform for modern businesses. Empowering growth through analytics and intuitive product management.</p>
+            <p className="mt-2 text-[11px] max-w-[250px] lg:mt-3 lg:text-[12px]">The all-in-one management platform for modern businesses.</p>
           </div>
           <div>
-            <p className="text-[20px] font-bold">Links</p>
-            <div className="mt-3 space-y-2 text-[13px]"><p>Overview</p><p>Inventory</p><p>Posts</p><p>Profile</p></div>
+            <p className="text-[15px] font-bold lg:text-[20px]">Links</p>
+            <div className="mt-2 space-y-1 text-[12px] lg:mt-3 lg:space-y-2 lg:text-[13px]"><p>Overview</p><p>Inventory</p><p>Posts</p><p>Profile</p></div>
           </div>
-          <div className="pt-8 md:pt-9 space-y-2 text-[13px]"><p>Analytics</p><p>Contact</p></div>
+          <div className="space-y-1 text-[12px] md:pt-9 lg:space-y-2 lg:text-[13px]"><p>Analytics</p><p>Contact</p></div>
           <div>
-            <p className="text-[20px] font-bold">Support</p>
-            <div className="mt-3 space-y-2 text-[13px]"><p>Help Center</p><p>Security</p><p>Terms of Service</p></div>
+            <p className="text-[15px] font-bold lg:text-[20px]">Support</p>
+            <div className="mt-2 space-y-1 text-[12px] lg:mt-3 lg:space-y-2 lg:text-[13px]"><p>Help Center</p><p>Security</p><p>Terms of Service</p></div>
           </div>
         </div>
-        <div className="mx-auto w-full max-w-[1400px] px-8 lg:px-10 py-3 border-t border-[#d49b22] flex items-center justify-between gap-3 text-[11px]"><p>� 2026 GOLO Dashboard. All rights reserved.</p></div>
+        <div className="mx-auto w-full max-w-[1400px] px-4 py-2 border-t border-[#d49b22] flex items-center justify-between gap-3 text-[10px] lg:px-10 lg:py-3 lg:text-[11px]"><p>� 2026 GOLO Dashboard. All rights reserved.</p></div>
       </footer>
     </div>
   );

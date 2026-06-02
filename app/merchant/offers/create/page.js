@@ -6,11 +6,8 @@ import { ChevronLeft, Search, Upload, X, Circle, CircleCheck } from "lucide-reac
 import { useAuth } from "../../../context/AuthContext";
 import MerchantNavbar from "../../MerchantNavbar";
  import {
-   clearMyOfferTemplate,
    getMerchantStoreLocation,
-   getMyOfferTemplate,
    getMerchantProducts,
-   saveMyOfferTemplate,
    submitOfferPromotionRequest,
    getProfile,
  } from "../../../lib/api";
@@ -38,10 +35,20 @@ const OFFER_CATEGORIES = [
   "Free Gift Offer",
 ];
 
-const DEFAULT_TERMS = "• Valid only on selected products.\n• Limited to 1 use per customer.";
-const DEFAULT_EXAMPLE = "Shop for Rs 3,000 and earn 1 star. Collect all stars to unlock your final discount.";
-const OFFER_TEMPLATE_LOCAL_KEY = "golo_offer_template";
-const OFFER_TEMPLATE_API_DISABLED_KEY = "golo_offer_template_api_disabled";
+const DEFAULT_TERMS = "";
+const DEFAULT_EXAMPLE = "";
+const EMPTY_FORM = {
+  title: "",
+  category: "",
+  imageUrl: "",
+  startDate: "",
+  endDate: "",
+  promotionExpiryText: "",
+  loyaltyRewardEnabled: false,
+  loyaltyPointsPerPurchase: "1",
+  termsAndConditions: DEFAULT_TERMS,
+  exampleUsage: DEFAULT_EXAMPLE,
+};
 
 function buildSelectedDates(startDate, endDate) {
   if (!startDate) return [];
@@ -95,18 +102,7 @@ export default function CreateMerchantOfferPage() {
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
-   const [formData, setFormData] = useState({
-     title: "",
-     category: "Special",
-     imageUrl: "",
-     startDate: "",
-     endDate: "",
-     promotionExpiryText: "",
-     loyaltyRewardEnabled: true,
-     loyaltyPointsPerPurchase: "1",
-     termsAndConditions: DEFAULT_TERMS,
-     exampleUsage: DEFAULT_EXAMPLE,
-   });
+  const [formData, setFormData] = useState(EMPTY_FORM);
 
    const [merchantStoreCategory, setMerchantStoreCategory] = useState('');
 
@@ -116,7 +112,6 @@ export default function CreateMerchantOfferPage() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [productSearch, setProductSearch] = useState("");
   const [modalSelectionIds, setModalSelectionIds] = useState([]);
-  const [templateApiAvailable, setTemplateApiAvailable] = useState(true);
 
   const applyTemplate = (template) => {
     if (!template) return;
@@ -138,7 +133,12 @@ export default function CreateMerchantOfferPage() {
     }
   };
 
-  // No localStorage fallback: rely on backend template API for persistence
+  const resetToEmpty = () => {
+    setFormData(EMPTY_FORM);
+    setSelectedProducts([]);
+    setError("");
+    setSuccessMessage("");
+  };
 
   const loadMerchantProducts = async () => {
     try {
@@ -216,25 +216,6 @@ export default function CreateMerchantOfferPage() {
          } catch (err) {
            console.warn('Could not fetch merchant store category', err);
          }
-
-         (async () => {
-           let apiDisabled = false;
-           try {
-             apiDisabled = localStorage.getItem(OFFER_TEMPLATE_API_DISABLED_KEY) === "1";
-           } catch {
-           }
-
-           try {
-             const templateRes = await getMyOfferTemplate();
-             const template = templateRes?.data;
-             setTemplateApiAvailable(true);
-             applyTemplate(template);
-           } catch (err) {
-             if (err?.status === 404) {
-               setTemplateApiAvailable(false);
-             }
-           }
-         })();
        })();
      }
   }, [loading, user, router]);
@@ -368,73 +349,7 @@ export default function CreateMerchantOfferPage() {
     }
   };
 
-  const resetAll = async () => {
-    setFormData({
-      title: "",
-      category: "Special",
-      imageUrl: "",
-      startDate: "",
-      endDate: "",
-      promotionExpiryText: "",
-      loyaltyRewardEnabled: true,
-      loyaltyPointsPerPurchase: "1",
-      termsAndConditions: DEFAULT_TERMS,
-      exampleUsage: DEFAULT_EXAMPLE,
-    });
-    setSelectedProducts([]);
-    setError("");
-    setSuccessMessage("");
-
-    try {
-      localStorage.removeItem(OFFER_TEMPLATE_LOCAL_KEY);
-    } catch {
-    }
-
-    if (!templateApiAvailable) {
-      setSuccessMessage("Template cleared successfully.");
-      return;
-    }
-
-    try {
-      await clearMyOfferTemplate();
-      try {
-        localStorage.removeItem(OFFER_TEMPLATE_API_DISABLED_KEY);
-      } catch {
-      }
-      setSuccessMessage("Template cleared successfully.");
-    } catch (err) {
-      if (err?.status === 404) {
-        setTemplateApiAvailable(false);
-        try {
-          localStorage.setItem(OFFER_TEMPLATE_API_DISABLED_KEY, "1");
-        } catch {
-        }
-        setSuccessMessage("Template cleared successfully.");
-        return;
-      }
-      setError("Failed to clear saved template.");
-    }
-  };
-
-  const saveTemplate = async () => {
-    const templatePayload = {
-      formData,
-      selectedProducts,
-    };
-
-    if (!templateApiAvailable) {
-      setError('Template API unavailable. Please try again later.');
-      return;
-    }
-
-    try {
-      await saveMyOfferTemplate(templatePayload);
-      setSuccessMessage('Template saved successfully.');
-      setError('');
-    } catch (err) {
-      setError('Failed to save template.');
-    }
-  };
+  const resetAll = () => resetToEmpty();
 
   const validateBeforeSubmit = () => {
     if (!storeLocationReady) {
@@ -528,18 +443,6 @@ export default function CreateMerchantOfferPage() {
          })),
        });
 
-      try {
-        localStorage.removeItem(OFFER_TEMPLATE_LOCAL_KEY);
-      } catch {
-      }
-
-      try {
-        if (templateApiAvailable) {
-          await clearMyOfferTemplate();
-        }
-      } catch {
-      }
-
       router.push("/merchant/offers");
     } catch (err) {
       setError(err?.message || "Failed to create offer.");
@@ -588,7 +491,7 @@ export default function CreateMerchantOfferPage() {
                   <div className="md:col-span-2">
                     <label className="mb-1 block text-[12px] font-semibold text-[#555]">Offer Title</label>
                     <input
-                      value={formData.title}
+                      value={formData.title ?? ''}
                       onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
                       className="h-10 w-full rounded-[8px] border border-[#dedede] bg-white px-3 text-[13px] outline-none"
                       placeholder="e.g. Diwali Dhamaka"
@@ -599,7 +502,7 @@ export default function CreateMerchantOfferPage() {
                     <label className="mb-1 block text-[12px] font-semibold text-[#555]">Start Date</label>
                     <input
                       type="date"
-                      value={formData.startDate}
+                      value={formData.startDate ?? ''}
                       onChange={(e) => setFormData((prev) => ({ ...prev, startDate: e.target.value }))}
                       className="h-10 w-full rounded-[8px] border border-[#dedede] bg-white px-3 text-[13px] outline-none"
                     />
@@ -609,7 +512,7 @@ export default function CreateMerchantOfferPage() {
                     <label className="mb-1 block text-[12px] font-semibold text-[#555]">End Date</label>
                     <input
                       type="date"
-                      value={formData.endDate}
+                      value={formData.endDate ?? ''}
                       onChange={(e) => setFormData((prev) => ({ ...prev, endDate: e.target.value }))}
                       className="h-10 w-full rounded-[8px] border border-[#dedede] bg-white px-3 text-[13px] outline-none"
                     />
@@ -618,7 +521,7 @@ export default function CreateMerchantOfferPage() {
                   <div className="md:col-span-2">
                     <label className="mb-1 block text-[12px] font-semibold text-[#555]">Promotion Expiry</label>
                     <input
-                      value={formData.promotionExpiryText}
+                      value={formData.promotionExpiryText ?? ''}
                       onChange={(e) => setFormData((prev) => ({ ...prev, promotionExpiryText: e.target.value }))}
                       className="h-10 w-full rounded-[8px] border border-[#dedede] bg-white px-3 text-[13px] outline-none"
                       placeholder="Offer ends in 30 days"
@@ -629,10 +532,13 @@ export default function CreateMerchantOfferPage() {
                    <div>
                      <label className="mb-1 block text-[12px] font-semibold text-[#555]">Promotion Type</label>
                       <select
-                        value={formData.category}
+                        value={formData.category ?? ''}
                         onChange={(e) => setFormData((prev) => ({ ...prev, category: e.target.value }))}
                         className="h-10 w-full rounded-[8px] border border-[#dedede] bg-white px-3 text-[13px] outline-none"
                       >
+                        <option value="" disabled>
+                          Select promotion type
+                        </option>
                        {OFFER_CATEGORIES.map((item) => (
                          <option key={item} value={item}>
                            {item}
@@ -727,16 +633,18 @@ export default function CreateMerchantOfferPage() {
               <div className="rounded-[12px] border border-[#ececec] bg-[#fbfbfb] p-4">
                 <h2 className="text-[18px] font-semibold text-[#202020]">Terms and Conditions</h2>
                 <textarea
-                  value={formData.termsAndConditions}
+                  value={formData.termsAndConditions ?? ''}
                   onChange={(e) => setFormData((prev) => ({ ...prev, termsAndConditions: e.target.value }))}
+                  placeholder="Enter terms and conditions for this offer"
                   className="mt-3 h-28 w-full rounded-[8px] border border-[#dedede] bg-white px-3 py-2 text-[13px] outline-none"
                 />
 
                 <div className="mt-3 rounded-[8px] border border-[#efe7c7] bg-[#fffbe8] px-3 py-2">
                   <p className="text-[12px] font-semibold text-[#6d5b1d]">Example Usage:</p>
                   <input
-                    value={formData.exampleUsage}
+                    value={formData.exampleUsage ?? ''}
                     onChange={(e) => setFormData((prev) => ({ ...prev, exampleUsage: e.target.value }))}
+                    placeholder="Describe how customers can use this offer"
                     className="mt-1 w-full bg-transparent text-[12px] text-[#665d3f] outline-none"
                   />
                 </div>
@@ -799,7 +707,7 @@ export default function CreateMerchantOfferPage() {
                               <input
                                 type="number"
                                 min="0"
-                                value={item.offerPrice}
+                                value={item.offerPrice ?? ''}
                                 onChange={(e) => updateSelectedOfferPrice(item.productId, e.target.value)}
                                 className="h-8 w-28 rounded-[7px] border border-[#dcdcdc] bg-white px-2 text-[12px] outline-none"
                               />
@@ -826,13 +734,6 @@ export default function CreateMerchantOfferPage() {
                       className="h-10 rounded-[8px] bg-[#18824f] px-5 text-[12px] font-semibold text-white"
                     >
                       Preview
-                    </button>
-                    <button
-                      type="button"
-                      onClick={saveTemplate}
-                      className="h-10 rounded-[8px] border border-[#d7d7d7] bg-white px-5 text-[12px] font-semibold text-[#666]"
-                    >
-                      Save as Template
                     </button>
                     <button
                       type="button"

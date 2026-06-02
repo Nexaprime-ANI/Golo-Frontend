@@ -75,18 +75,18 @@ export default function MerchantNavbar({ activeKey = "dashboard" }) {
   };
 
   return (
-    <header className="sticky top-0 z-[9999] h-16 bg-[#efb02e] border-b border-[#d7a02a] px-8 lg:px-10 flex items-center justify-between shadow-sm">
-      <div className="flex items-center gap-3 min-w-[180px]">
+    <header className="sticky top-0 z-[9999] min-h-16 bg-[#efb02e] border-b border-[#d7a02a] px-4 py-2 lg:h-16 lg:px-10 lg:py-0 flex items-center justify-between gap-3 shadow-sm overflow-hidden lg:overflow-visible">
+      <div className="flex min-w-0 items-center gap-2 lg:min-w-[180px] lg:gap-3">
         <button type="button" onClick={() => router.push("/merchant/dashboard")} className="flex items-center gap-3 cursor-pointer">
           <div className="w-9 h-9 bg-white rounded-xl flex items-center justify-center shadow font-bold" style={{ color: "#157a4f" }}>
             G
           </div>
-          <span className="text-xl font-semibold tracking-wide text-[#157a4f]">GOLO</span>
+          <span className="text-lg font-semibold tracking-wide text-[#157a4f] lg:text-xl">GOLO</span>
         </button>
       </div>
 
-      <div className="ml-auto flex items-center gap-8 text-[12px] font-semibold text-[#5a4514]">
-        <nav className="flex items-center gap-8">
+      <div className="ml-auto flex min-w-0 items-center gap-2 text-[12px] font-semibold text-[#5a4514] lg:gap-8">
+        <nav className="flex max-w-[50vw] items-center gap-2 overflow-x-auto overflow-y-hidden whitespace-nowrap py-1 [-ms-overflow-style:none] [scrollbar-width:none] lg:max-w-none lg:gap-8 lg:overflow-visible lg:py-0 [&::-webkit-scrollbar]:hidden">
           {navItems.map((item) => {
             const isActive = item.key === activeKey;
             const isRedeem = item.key === "redeem";
@@ -97,10 +97,10 @@ export default function MerchantNavbar({ activeKey = "dashboard" }) {
                 onClick={() => router.push(item.href)}
                 className={
                   isActive
-                    ? "relative h-16 text-[#157a4f]"
+                    ? "relative h-9 px-2 text-[#157a4f] lg:h-16 lg:px-0"
                     : isRedeem
-                      ? "relative h-16 hover:text-[#157a4f]"
-                      : "hover:text-[#157a4f]"
+                      ? "relative h-9 px-2 hover:text-[#157a4f] lg:h-16 lg:px-0"
+                      : "h-9 px-2 hover:text-[#157a4f] lg:h-16 lg:px-0"
                 }
               >
                 {item.label}
@@ -115,7 +115,7 @@ export default function MerchantNavbar({ activeKey = "dashboard" }) {
           <button
             type="button"
             onClick={() => setShowDropdown(!showDropdown)}
-            className="relative w-10 h-10 rounded-full bg-white shadow-md hover:scale-105 transition flex items-center justify-center"
+            className="relative h-10 w-10 min-w-[2.5rem] shrink-0 rounded-full bg-white shadow-md hover:scale-105 transition flex items-center justify-center"
             aria-label="Notifications"
           >
             <Bell size={18} style={{ color: "#157a4f" }} />
@@ -128,7 +128,7 @@ export default function MerchantNavbar({ activeKey = "dashboard" }) {
 
           {/* Dropdown Panel */}
           {showDropdown && (
-            <div className="absolute right-0 top-14 w-80 max-h-[420px] bg-white rounded-[12px] shadow-2xl border border-[#e5e5e5] overflow-hidden z-[10000]">
+            <div className="absolute right-0 top-14 w-[calc(100vw-2rem)] max-w-80 max-h-[420px] bg-white rounded-[12px] shadow-2xl border border-[#e5e5e5] overflow-hidden z-[10000]">
               <div className="px-4 py-3 border-b border-[#f0f0f0] flex items-center justify-between">
                 <h3 className="text-[14px] font-bold text-[#1e1e1e]">Notifications</h3>
                 {unreadCount > 0 && (
@@ -160,7 +160,7 @@ export default function MerchantNavbar({ activeKey = "dashboard" }) {
           )}
         </div>
 
-        <button type="button" onClick={() => router.push("/merchant/profile")} className="w-10 h-10 rounded-full bg-white shadow-md hover:scale-105 transition flex items-center justify-center" aria-label="Profile">
+        <button type="button" onClick={() => router.push("/merchant/profile")} className="h-10 w-10 min-w-[2.5rem] shrink-0 rounded-full bg-white shadow-md hover:scale-105 transition flex items-center justify-center" aria-label="Profile">
           <User size={18} style={{ color: "#157a4f" }} />
         </button>
       </div>

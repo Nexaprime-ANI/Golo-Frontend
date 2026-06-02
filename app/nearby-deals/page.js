@@ -217,6 +217,7 @@ function NearbyDealsPageContent() {
   const [error, setError] = useState("");
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [authRedirectTo, setAuthRedirectTo] = useState("/nearby-deals");
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
   const lastLocationUpdateRef = useRef(0);
   const nearbyFetchSeqRef = useRef(0);
 
@@ -465,6 +466,17 @@ function NearbyDealsPageContent() {
         }
       }
 
+      // Exclude expired offers from nearby/category listings. Expired deals
+      // should only appear in the user's `My Deals` view when they have
+      // previously claimed or redeemed them.
+      const expiryCandidates = row?.endsAt || row?.expiresAt || row?.expiry || row?.expires_at || row?.endDate;
+      if (expiryCandidates) {
+        const ts = new Date(expiryCandidates).getTime();
+        if (!Number.isNaN(ts) && ts <= Date.now()) {
+          return false;
+        }
+      }
+
       return true;
     });
 
@@ -603,10 +615,18 @@ function NearbyDealsPageContent() {
       <Navbar />
        <CategoryBar variant="golocal" preferredCategories={user?.preferredCategories || []} />
 
-      <section className="mx-auto max-w-[1400px] px-6 py-6">
+      <section className="mx-auto max-w-[1400px] px-4 py-4 sm:px-6 sm:py-6">
+        <button
+          type="button"
+          onClick={() => setShowMobileFilters((value) => !value)}
+          className="mb-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-gray-800 shadow-sm lg:hidden"
+        >
+          <SlidersHorizontal size={15} />
+          {showMobileFilters ? "Hide Filters" : "Show Filters"}
+        </button>
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[260px_1fr]">
-          <aside className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm lg:sticky lg:top-28">
-            <div className="mb-5 flex items-center justify-between">
+          <aside className={`${showMobileFilters ? "block" : "hidden"} max-h-[68vh] overflow-y-auto rounded-xl border border-gray-200 bg-white p-3 shadow-sm lg:sticky lg:top-28 lg:block lg:max-h-none lg:overflow-visible lg:p-4`}>
+            <div className="mb-4 flex items-center justify-between lg:mb-5">
               <button className="inline-flex items-center gap-2 text-sm font-semibold text-gray-700">
                 <SlidersHorizontal size={14} /> Filters
               </button>
@@ -615,7 +635,7 @@ function NearbyDealsPageContent() {
               </button>
             </div>
 
-            <div className="mb-6">
+            <div className="mb-4 lg:mb-6">
               <p className="mb-3 text-[11px] font-bold tracking-wide text-gray-400">DISTANCE RADIUS</p>
               <input
                 type="range"
@@ -631,9 +651,9 @@ function NearbyDealsPageContent() {
               <p className="mt-2 text-[11px] font-semibold text-[#157A4F]">Selected: {distanceRadius} km</p>
             </div>
 
-            <div className="mb-6">
+            <div className="mb-4 lg:mb-6">
               <p className="mb-3 text-[11px] font-bold tracking-wide text-gray-400">OFFER TYPE</p>
-              <div className="space-y-2 text-xs text-gray-700">
+              <div className="grid max-h-36 grid-cols-2 gap-2 overflow-y-auto pr-1 text-xs text-gray-700 lg:block lg:max-h-none lg:space-y-2 lg:overflow-visible lg:pr-0">
                 {OFFER_TYPES.map((item) => (
                   <label key={item} className="flex items-center gap-2">
                     <input
@@ -653,7 +673,7 @@ function NearbyDealsPageContent() {
               </div>
             </div>
 
-            <div className="mb-6">
+            <div className="mb-4 lg:mb-6">
               <p className="mb-3 text-[11px] font-bold tracking-wide text-gray-400">PRICE RANGE</p>
               <input
                 type="range"
@@ -700,9 +720,9 @@ function NearbyDealsPageContent() {
           </aside>
 
           <div>
-            <div className="mb-4 flex items-start justify-between gap-4">
+            <div className="mb-4 flex flex-col items-stretch justify-between gap-4 sm:flex-row sm:items-start">
               <div>
-                <h1 className="text-[34px] font-extrabold text-gray-900">{selectedCategory || "Deals near you"}</h1>
+                <h1 className="text-[26px] font-extrabold leading-tight text-gray-900 sm:text-[34px]">{selectedCategory || "Deals near you"}</h1>
                 <p className="mt-1 text-xs text-gray-500">
                   Showing {summary.total} offers
                   {selectedCategory ? ` in ${selectedCategory}` : ""}
@@ -719,7 +739,7 @@ function NearbyDealsPageContent() {
                 {locationError ? <p className="mt-1 text-[11px] text-amber-600">{locationError}</p> : null}
               </div>
 
-              <div className="flex items-center gap-2 pt-2">
+              <div className="flex flex-wrap items-center gap-2 pt-2">
                 <button
                   className={`rounded-md border border-gray-200 bg-white p-2 ${activeView === "grid" ? "text-gray-700" : "text-gray-400"}`}
                   onClick={() => setActiveView("grid")}
@@ -732,7 +752,7 @@ function NearbyDealsPageContent() {
                 >
                   <List size={14} />
                 </button>
-                <button className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700">
+                <button className="inline-flex min-w-0 flex-1 items-center justify-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700 sm:flex-none">
                   Sort:
                   <select
                     value={sortBy}
@@ -750,18 +770,18 @@ function NearbyDealsPageContent() {
               </div>
             </div>
 
-            <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <div className="rounded-lg border border-gray-200 bg-white px-3 py-2">
-                <p className="text-[11px] text-gray-500">Total Deals</p>
-                <p className="text-[20px] font-semibold text-gray-900">{summary.total}</p>
+            <div className="mb-4 flex w-full gap-2 sm:gap-3">
+              <div className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-2 py-2 sm:px-3">
+                <p className="text-[9px] leading-tight text-gray-500 sm:text-[11px]">Total Deals</p>
+                <p className="text-[18px] font-semibold text-gray-900 sm:text-[20px]">{summary.total}</p>
               </div>
-              <div className="rounded-lg border border-gray-200 bg-white px-3 py-2">
-                <p className="text-[11px] text-gray-500">Active Now</p>
-                <p className="text-[20px] font-semibold text-gray-900">{summary.active}</p>
+              <div className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-2 py-2 sm:px-3">
+                <p className="text-[9px] leading-tight text-gray-500 sm:text-[11px]">Active Now</p>
+                <p className="text-[18px] font-semibold text-gray-900 sm:text-[20px]">{summary.active}</p>
               </div>
-              <div className="rounded-lg border border-gray-200 bg-white px-3 py-2">
-                <p className="text-[11px] text-gray-500">Average Offer Price</p>
-                <p className="text-[20px] font-semibold text-gray-900">₹{summary.avgPrice.toLocaleString("en-IN")}</p>
+              <div className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-2 py-2 sm:px-3">
+                <p className="text-[9px] leading-tight text-gray-500 sm:text-[11px]">Avg Price</p>
+                <p className="text-[16px] font-semibold text-gray-900 sm:text-[20px]">₹{summary.avgPrice.toLocaleString("en-IN")}</p>
               </div>
             </div>
 
@@ -784,7 +804,7 @@ function NearbyDealsPageContent() {
                       key={deal.offerId}
                       className="group flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[#157A4F] hover:shadow-lg"
                     >
-                      <div className="relative h-36 w-full overflow-hidden bg-gray-100">
+                      <div className="relative h-44 w-full overflow-hidden bg-gray-100 sm:h-36">
                       <img
                         src={deal.imageUrl || "/images/deal2.avif"}
                         alt={deal.title}

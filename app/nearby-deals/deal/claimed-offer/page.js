@@ -659,10 +659,20 @@ function ClaimedOfferContent() {
 
               <button
                 onClick={() => {
-                  const merchantStoreId = selectedVoucher?.merchantId;
+                  const merchantStoreId =
+                    selectedVoucher?.merchantId ||
+                    selectedVoucher?.merchant?._id ||
+                    selectedVoucher?.merchant?.id ||
+                    selectedVoucher?.merchant?.merchantId ||
+                    offerDetails?.merchant?.merchantId ||
+                    offerDetails?.merchantId ||
+                    offerDetails?.merchant?._id ||
+                    offerDetails?.merchant?.id;
+
                   if (merchantStoreId) {
-                    sessionStorage.setItem("merchantId", merchantStoreId);
-                    router.push("/nearby-deals/store");
+                    // Keep sessionStorage for backward compatibility
+                    sessionStorage.setItem("merchantId", String(merchantStoreId));
+                    router.push(`/nearby-deals/store?merchantId=${encodeURIComponent(String(merchantStoreId))}`);
                   }
                 }}
                 className="mt-4 h-10 w-full rounded-[8px] border border-[#e8b038] bg-[#f7ebcf] text-[12px] font-semibold text-[#8f6515] transition-colors hover:bg-[#f3dfb2]"

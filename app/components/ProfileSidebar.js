@@ -32,7 +32,7 @@ export default function ProfileSidebar() {
   };
 
   return (
-    <div className="bg-white rounded-3xl shadow-sm p-6 h-fit border border-gray-100">
+    <div className="hidden lg:block bg-white rounded-3xl shadow-sm p-6 h-fit border border-gray-100">
       {/* Title */}
       <div className="mb-8">
         <h3 className="text-xl font-semibold text-black">

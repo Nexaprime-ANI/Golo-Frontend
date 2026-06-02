@@ -22,7 +22,7 @@ export default function GolocalProfileSidebar({ active = "profile" }) {
   };
 
   return (
-    <aside className="border-r border-[#ececec] bg-[#fbfbfb] p-5 flex flex-col justify-between">
+    <aside className="hidden border-r border-[#ececec] bg-[#fbfbfb] p-5 lg:flex flex-col justify-between">
       <div className="space-y-2">
         <Link href="/profile" className={itemClass(active === "profile")}>
           <User size={15} />

@@ -373,7 +373,7 @@ export default function AddProductPage() {
       </main>
 
       {/* Footer */}
-      <footer className="mt-12 bg-[#f0aa19] py-8 px-8 lg:px-10 text-[#5a4514]">
+      <footer className="mt-4 bg-[#e8ad2f] border-t border-[#d49b22] px-4 py-4 text-[#5a4514] lg:mt-12 lg:bg-[#f0aa19] lg:px-10 lg:py-8">
         <div className="mx-auto max-w-[1400px] flex items-start justify-between gap-8">
           <div>
             <div className="flex items-center gap-2 mb-3">

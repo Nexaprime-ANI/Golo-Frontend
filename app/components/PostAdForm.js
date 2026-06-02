@@ -47,6 +47,8 @@ export default function PostAdForm({
   setPropertyTypeRent,
   onCategoryDetailsChange,
   templateId,
+  setTemplateId,
+  initialAd,
 }) {
   // All hooks at top level
   const scrollRef = useRef(null);
@@ -59,6 +61,7 @@ export default function PostAdForm({
   const [selectedSub, setSelectedSub] = useState(null);
   const [mediaError, setMediaError] = useState("");
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const isEditMode = Boolean(initialAd);
 
   // Education states
   const [educationInstitutionType, setEducationInstitutionType] = useState("");
@@ -193,6 +196,7 @@ export default function PostAdForm({
   const [petAge, setPetAge] = useState("");
   const [petGender, setPetGender] = useState("");
   const [petWeight, setPetWeight] = useState("");
+  const [petPrice, setPetPrice] = useState("");
   const [petTemperament, setPetTemperament] = useState([]);
   const [petSpecialDiet, setPetSpecialDiet] = useState("");
 
@@ -259,6 +263,273 @@ export default function PostAdForm({
     { name: "Other", icon: Package },
   ];
 
+  const categoryNameMap = {
+    Electronics: "Electronics & Home appliances",
+  };
+
+  const normalizeCategoryName = (value) => {
+    if (!value) return "";
+    const trimmedValue = String(value).trim();
+    return categoryNameMap[trimmedValue] || trimmedValue;
+  };
+
+  const findCategoryObject = (categoryName) => {
+    const normalized = normalizeCategoryName(categoryName);
+    return categories.find((cat) => cat.name === normalized) || null;
+  };
+
+  const parseDateValue = (value) => {
+    if (!value) return null;
+    if (value instanceof Date) return Number.isFinite(value.getTime()) ? value : null;
+    const parsed = new Date(value);
+    return Number.isFinite(parsed.getTime()) ? parsed : null;
+  };
+
+  const getCategoryDataSourceFromAd = (ad) => {
+    if (!ad) return {};
+
+    const categoryKeyMap = {
+      Education: "educationData",
+      Matrimonial: "matrimonialData",
+      Vehicle: "vehicleData",
+      Business: "businessData",
+      Travel: "travelData",
+      Astrology: "astrologyData",
+      Property: "propertyData",
+      "Public Notice": "publicNoticeData",
+      "Lost & Found": "lostFoundData",
+      Service: "serviceData",
+      Personal: "personalData",
+      Employment: "employmentData",
+      Pets: "petsData",
+      Mobiles: "mobileData",
+      Electronics: "electronicsData",
+      "Electronics & Home appliances": "electronicsData",
+      Furniture: "furnitureData",
+      "Greetings & Tributes": "greetingsData",
+      Other: "otherData",
+    };
+
+    const normalizedCategory = normalizeCategoryName(ad.category);
+    const typedKey = categoryKeyMap[normalizedCategory];
+    const typedData = typedKey && typeof ad[typedKey] === "object" ? ad[typedKey] : {};
+    const categorySpecific = typeof ad.categorySpecificData === "object" ? ad.categorySpecificData : {};
+
+    return {
+      ...categorySpecific,
+      ...typedData,
+    };
+  };
+
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (!initialAd) return;
+
+    const normalizedCategory = normalizeCategoryName(initialAd.category);
+    const categoryObj = findCategoryObject(normalizedCategory) || categories[0];
+    const categoryData = getCategoryDataSourceFromAd(initialAd);
+    const derivedSub = initialAd.subCategory || categoryData.subCategory || categoryData.listingType || categoryData.type || categoryData.tributeType;
+
+    setAdTitleState(initialAd.title || "");
+    setAdDescriptionState(initialAd.description || "");
+    setCities(initialAd.cities?.length ? initialAd.cities : initialAd.city ? [initialAd.city] : []);
+    setUploadedImages((initialAd.images || []).map((url) => ({ url })));
+    setPrimaryContact(initialAd.primaryContact || initialAd.contactInfo?.phone || "");
+    setSelectedCategory(categoryObj);
+    setSelectedSub(derivedSub || null);
+    setSelectedDates(Array.isArray(initialAd.selectedDates) ? initialAd.selectedDates.map(parseDateValue).filter(Boolean) : []);
+    setTemplateId(initialAd.templateId || 1);
+    setMobilePrice(String(initialAd.mobileData?.price ?? categoryData.price ?? initialAd.price ?? ""));
+    setMonthlyRent(String(initialAd.propertyData?.rent ?? categoryData.rent ?? ""));
+    setPropertyTypeRent(initialAd.propertyData?.propertyType ?? categoryData.propertyType ?? "");
+
+    setEducationInstitutionType(categoryData.institutionType || "");
+    setEducationInstitutionName(categoryData.institutionName || "");
+    setEducationCourseName(categoryData.courseName || "");
+    setEducationMode(categoryData.modeOfEducation || "");
+    setEducationDemo(categoryData.demoClassAvailable || "");
+    setEducationDuration(categoryData.duration || "");
+    setEducationFees(categoryData.fees != null ? String(categoryData.fees) : "");
+    setEducationExperience(categoryData.teachingExperience || "");
+    setEducationQualification(categoryData.qualification || "");
+
+    setMatrimonialGender(categoryData.gender || "");
+    setMatrimonialMarital(categoryData.maritalStatus || "");
+    setMatrimonialProfileFor(categoryData.profileFor || "");
+    setMatrimonialName(categoryData.name || "");
+    setMatrimonialAge(categoryData.age != null ? String(categoryData.age) : "");
+    setMatrimonialReligion(categoryData.religion || "");
+    setMatrimonialCaste(categoryData.caste || "");
+    setMatrimonialEducation(categoryData.education || "");
+    setMatrimonialOccupation(categoryData.occupation || "");
+    setMatrimonialIncome(categoryData.annualIncome || "");
+    setMatrimonialHeight(categoryData.height || "");
+    setMatrimonialLocation(categoryData.city || "");
+    setMatrimonialAboutMe(categoryData.aboutMe || "");
+    setMatrimonialPartnerPref(categoryData.partnerPreference || "");
+
+    setVehicleSellTransmission(categoryData.transmission || "");
+    setVehicleSellRC(categoryData.rcAvailable || "");
+    setVehicleSellType(categoryData.vehicleType || "");
+    setVehicleSellBrand(categoryData.brand || "");
+    setVehicleSellModel(categoryData.model || "");
+    setVehicleSellVariant(categoryData.variant || "");
+    setVehicleSellYear(categoryData.year != null ? String(categoryData.year) : "");
+    setVehicleSellKMDriven(categoryData.kilometersDriven != null ? String(categoryData.kilometersDriven) : "");
+    setVehicleSellFuelType(categoryData.fuelType || "");
+    setVehicleSellOwnership(categoryData.ownership || "");
+    setVehicleSellInsurance(categoryData.insuranceValidTill || "");
+    setVehicleSellCondition(categoryData.condition || "");
+    setVehicleSellPrice(categoryData.price != null ? String(categoryData.price) : "");
+
+    setVehicleRentType(categoryData.vehicleType || "");
+    setVehicleRentBrandModel(categoryData.brandModel || "");
+    setVehicleRentAmount(categoryData.rentAmount != null ? String(categoryData.rentAmount) : "");
+    setVehicleRentDeposit(categoryData.securityDeposit != null ? String(categoryData.securityDeposit) : "");
+    setVehicleRentDriver(categoryData.includesDriver || "");
+    setVehicleRentMinDuration(categoryData.minRentalDuration || "");
+
+    setBusinessName(categoryData.businessName || "");
+    setBusinessType(categoryData.businessType || "");
+    setBusinessServicesOffered(categoryData.servicesOffered || "");
+    setBusinessGstNumber(categoryData.gstNumber || "");
+    setBusinessWebsiteUrl(categoryData.websiteUrl || "");
+    setBusinessCampaignName(categoryData.campaignName || "");
+    setBusinessCampaignDescription(categoryData.campaignDescription || "");
+    setBusinessShopAddress(categoryData.shopAddress || "");
+    setValidTillDate(parseDateValue(categoryData.validTillDate));
+    setSocialMedia(Array.isArray(categoryData.socialMedia) ? categoryData.socialMedia : []);
+
+    setTravelPackageType(categoryData.packageType || "");
+    setTravelDestination(categoryData.destination || "");
+    setTravelDate(parseDateValue(categoryData.travelDate));
+    setTravelDuration(categoryData.duration || "");
+    setTravelInclusions(categoryData.inclusions || "");
+    setTravelExclusions(categoryData.exclusions || "");
+    setTravelPricePerPerson(categoryData.pricePerPerson != null ? String(categoryData.pricePerPerson) : "");
+    setTravelAvailableSeats(categoryData.availableSeats != null ? String(categoryData.availableSeats) : "");
+    setTravelPickupLocation(categoryData.pickupLocation || "");
+
+    setAstrologyServiceType(categoryData.serviceType || "");
+    setAstrologyExperience(categoryData.experience || "");
+    setAstrologyConsultationFee(categoryData.consultationFee != null ? String(categoryData.consultationFee) : "");
+    setConsultationMode(categoryData.consultationMode || "");
+    setAstrologyLanguagesSpoken(categoryData.languagesSpoken || "");
+    setAstrologyAvailabilityTime(categoryData.availabilityTime || "");
+
+    setPropertyTypeSell(categoryData.propertyType || "");
+    setBhk(categoryData.bhk || "");
+    setBuiltUpArea(categoryData.builtUpArea || "");
+    setFurnishing(categoryData.furnishing || "");
+    setBathrooms(categoryData.bathrooms != null ? String(categoryData.bathrooms) : "");
+    setParkingAvailable(categoryData.parkingAvailable || "");
+    setFloor(categoryData.floor || "");
+    setAge(categoryData.propertyAge || "");
+    setFacingSide(categoryData.facingSide || "");
+    setAskingPrice(categoryData.askingPrice != null ? String(categoryData.askingPrice) : "");
+    setPropertyTypeRent(categoryData.propertyType || propertyTypeRent || "");
+    setMonthlyRent(categoryData.rent != null ? String(categoryData.rent) : "");
+    setSecurityDeposit(categoryData.securityDeposit != null ? String(categoryData.securityDeposit) : "");
+    setMaintenanceCost(categoryData.maintenanceCost != null ? String(categoryData.maintenanceCost) : "");
+    setAvailableFromDate(parseDateValue(categoryData.availableFromDate));
+    setPreferredTenant(categoryData.preferredTenant || "");
+    setLeaseDuration(categoryData.leaseDuration || "");
+
+    setNoticeType(categoryData.noticeType || "");
+    setIssuingAuthority(categoryData.issuingAuthority || "");
+    setDetailedNotice(categoryData.detailedNotice || "");
+    setSupportingDocuments((categoryData.supportingDocuments || []).map((name) => ({ id: `${name}-${Date.now()}`, name })));
+
+    setLfStatus(categoryData.status || "");
+    setItemType(categoryData.itemType || "");
+    setItemName(categoryData.itemName || "");
+    setLfDate(parseDateValue(categoryData.date));
+    setLfLocation(categoryData.location || "");
+    setLfDescription(categoryData.description || "");
+    setReward(categoryData.reward || "");
+
+    setServiceCategory(categoryData.serviceCategory || "");
+    setServiceExperience(categoryData.experience || "");
+    setCharges(categoryData.charges != null ? String(categoryData.charges) : "");
+    setServiceArea(categoryData.serviceArea || "");
+    setAvailableTime(categoryData.availableTime || "");
+    setServiceBio(categoryData.bio || "");
+    setAvailable24x7(Boolean(categoryData.available24x7));
+
+    setPersonalName(categoryData.name || "");
+    setPersonalAchievementTitle(categoryData.achievementTitle || "");
+    setPersonalAge(categoryData.age != null ? String(categoryData.age) : "");
+    setPersonalGender(categoryData.gender || "");
+    setPersonalDescription(categoryData.description || "");
+    setPersonalContact(categoryData.contact || "");
+
+    setEmploymentType(categoryData.jobType || "");
+    setEmploymentCompanyName(categoryData.companyName || "");
+    setEmploymentExperience(categoryData.experienceRequired || "");
+    setEmploymentSalaryRange(categoryData.salary || "");
+    setEmploymentIndustry(categoryData.industry || "");
+    setEmploymentJobDescription(categoryData.description || "");
+    setEmploymentRequirements(categoryData.qualifications || "");
+    setEmploymentBenefits(categoryData.benefits || "");
+    setEmploymentVacancies(categoryData.vacancies != null ? String(categoryData.vacancies) : "");
+
+    setPetSpecies(categoryData.species || "");
+    setPetBreed(categoryData.breed || "");
+    setPetAge(categoryData.age || "");
+    setPetGender(categoryData.gender || "");
+    setPetWeight(categoryData.weight || "");
+    setPetPrice(categoryData.price != null ? String(categoryData.price) : "");
+    setPetTemperament(Array.isArray(categoryData.temperament) ? categoryData.temperament : (categoryData.temperament ? [categoryData.temperament] : []));
+    setPetSpecialDiet(categoryData.specialDietOrNeeds || "");
+
+    setMobileBrand(categoryData.brand || "");
+    setMobileModel(categoryData.model || "");
+    setMobileCondition(categoryData.condition || "");
+    setMobileWarranty(categoryData.warranty || "");
+    setMobilePrice(categoryData.price != null ? String(categoryData.price) : "");
+    setMobileNegotiable(Boolean(categoryData.negotiable));
+
+    setElectronicAppliance(categoryData.applianceType || "");
+    setElectronicBrand(categoryData.brand || "");
+    setElectronicModel(categoryData.model || "");
+    setElectronicCondition(categoryData.condition || "");
+    setElectronicWarranty(categoryData.warranty || "");
+    setElectronicPrice(categoryData.price != null ? String(categoryData.price) : "");
+    setElectronicNegotiable(Boolean(categoryData.negotiable));
+    setElectronicCapacity(categoryData.capacity || "");
+
+    setFurnitureTypeInput(categoryData.furnitureType || "");
+    setFurnitureMaterial(categoryData.material || "");
+    setFurnitureCondition(categoryData.condition || "");
+    setFurnitureSize(categoryData.dimensions || "");
+    setFurniturePrice(categoryData.price != null ? String(categoryData.price) : "");
+    setFurnitureNegotiable(Boolean(categoryData.negotiable));
+
+    setGreetingPersonName(categoryData.personName || "");
+    setGreetingAgeTurning(categoryData.ageTurning || "");
+    setGreetingBirthday(parseDateValue(categoryData.birthday));
+    setGreetingMessage(categoryData.message || "");
+    setGreetingFromName(categoryData.fromName || "");
+    setGreetingRelationship(categoryData.relationship || "");
+
+    setTributeFullName(categoryData.fullName || "");
+    setTributeDateOfBirth(parseDateValue(categoryData.dateOfBirth));
+    setTributeAge(categoryData.age != null ? String(categoryData.age) : "");
+    setTributeBiography(categoryData.biography || "");
+    setTributeFuneralDetails(categoryData.funeralDetails || "");
+
+    setOtherTitle(categoryData.title || "");
+    setOtherDescription(categoryData.description || "");
+    setOtherPrice(categoryData.price != null ? String(categoryData.price) : "");
+  }, [initialAd]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  useEffect(() => {
+    if (!initialAd && selectedCategory === null && categories.length > 0) {
+      setSelectedCategory(categories[0]);
+    }
+  }, [initialAd, selectedCategory]);
+
   const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 10 }, (_, i) => currentYear + i);
@@ -275,7 +546,13 @@ export default function PostAdForm({
 
   const toNumberOrUndefined = (value) => {
     if (value === null || value === undefined || value === "") return undefined;
-    const parsed = Number(value);
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value !== "string") return undefined;
+
+    const normalized = value.replace(/[^0-9.]/g, "");
+    if (!normalized) return undefined;
+
+    const parsed = Number(normalized);
     return Number.isFinite(parsed) ? parsed : undefined;
   };
 
@@ -351,7 +628,7 @@ export default function PostAdForm({
               ownerNumber: vehicleSellOwnership === "Single Owner" ? 1 : (vehicleSellOwnership === "Second Owner" ? 2 : (vehicleSellOwnership === "Third Owner" ? 3 : undefined)),
               insuranceValidTill: vehicleSellInsurance || undefined,
               condition: vehicleSellCondition || undefined,
-              price: Number(vehicleSellPrice),
+              price: toNumberOrUndefined(vehicleSellPrice),
             };
           }
         } else if (selectedSub === "Rent") {
@@ -361,8 +638,8 @@ export default function PostAdForm({
               type: "Rent",
               vehicleType: vehicleRentType,
               brandModel: vehicleRentBrandModel,
-              rentAmount: Number(vehicleRentAmount),
-              securityDeposit: Number(vehicleRentDeposit),
+              rentAmount: toNumberOrUndefined(vehicleRentAmount),
+              securityDeposit: toNumberOrUndefined(vehicleRentDeposit),
               includesDriver: vehicleRentDriver,
               minRentalDuration: vehicleRentMinDuration
             };
@@ -424,7 +701,7 @@ export default function PostAdForm({
             ? {
                 listingType: "Rent",
                 propertyType: propertyTypeRent,
-                rent: Number(monthlyRent),
+                rent: toNumberOrUndefined(monthlyRent),
                 securityDeposit: toNumberOrUndefined(securityDeposit),
                 maintenanceCost: toNumberOrUndefined(maintenanceCost),
                 availableFromDate: availableFromDate || undefined,
@@ -526,6 +803,7 @@ export default function PostAdForm({
             age: petAge,
             gender: petGender,
             weight: petWeight,
+            price: toNumberOrUndefined(petPrice),
             temperament: petTemperament.length > 0 ? petTemperament : undefined,
             specialDietOrNeeds: petSpecialDiet || undefined,
           };
@@ -533,7 +811,7 @@ export default function PostAdForm({
         break;
       case "Mobiles":
         isComplete = isFilled(mobileBrand) && isFilled(mobileModel) && isFilled(mobileCondition) && isFilled(mobileWarranty) && isFilled(mobilePrice);
-        if (isComplete) categoryData = { brand: mobileBrand, model: mobileModel, condition: mobileCondition, warranty: mobileWarranty, price: Number(mobilePrice), negotiable: mobileNegotiable };
+        if (isComplete) categoryData = { brand: mobileBrand, model: mobileModel, condition: mobileCondition, warranty: mobileWarranty, price: toNumberOrUndefined(mobilePrice), negotiable: mobileNegotiable };
         break;
       case "Electronics":
       case "Electronics & Home appliances":
@@ -545,7 +823,7 @@ export default function PostAdForm({
             model: electronicModel,
             condition: electronicCondition,
             warranty: electronicWarranty,
-            price: Number(electronicPrice),
+            price: toNumberOrUndefined(electronicPrice),
             negotiable: electronicNegotiable,
             capacity: electronicCapacity || undefined,
           };
@@ -569,7 +847,7 @@ export default function PostAdForm({
             material: furnitureMaterial,
             condition: furnitureCondition,
             dimensions: furnitureSize,
-            price: Number(furniturePrice),
+            price: toNumberOrUndefined(furniturePrice),
             negotiable: furnitureNegotiable,
           };
         }
@@ -608,7 +886,7 @@ export default function PostAdForm({
           categoryData = {
             title: otherTitle,
             description: otherDescription,
-            price: otherPrice ? Number(otherPrice) : undefined,
+            price: toNumberOrUndefined(otherPrice),
           };
         }
         break;
@@ -843,6 +1121,7 @@ export default function PostAdForm({
     petAge,
     petGender,
     petWeight,
+    petPrice,
     petTemperament,
     petSpecialDiet,
     mobileBrand,
@@ -896,79 +1175,81 @@ export default function PostAdForm({
     <div className="space-y-12 bg-[#F8F6F2] p-6 rounded-3xl">
 
       {/* Choose Category */}
-      <div className="bg-white p-10 rounded-3xl shadow-md border border-gray-100 relative min-h-[320px]">
+      {!isEditMode && (
+        <div className="bg-white p-10 rounded-3xl shadow-md border border-gray-100 relative min-h-[320px]">
 
-        <h3 className="font-semibold text-2xl mb-8 text-gray-800 text-center">
-          Choose Category
-        </h3>
+          <h3 className="font-semibold text-2xl mb-8 text-gray-800 text-center">
+            Choose Category
+          </h3>
 
-        {/* Left Scroll Button */}
-        <button
-          onClick={() => scroll("left")}
-          className="absolute left-2 top-1/2 -translate-y-1/2 bg-white border border-gray-200 shadow-md rounded-full p-2 hover:bg-[#FFF3D6] transition z-10"
-        >
-          <ChevronLeft size={18} />
-        </button>
+          {/* Left Scroll Button */}
+          <button
+            onClick={() => scroll("left")}
+            className="absolute left-2 top-1/2 -translate-y-1/2 bg-white border border-gray-200 shadow-md rounded-full p-2 hover:bg-[#FFF3D6] transition z-10"
+          >
+            <ChevronLeft size={18} />
+          </button>
 
-        {/* Right Scroll Button */}
-        <button
-          onClick={() => scroll("right")}
-          className="absolute right-2 top-1/2 -translate-y-1/2 bg-white border border-gray-200 shadow-md rounded-full p-2 hover:bg-[#FFF3D6] transition z-10"
-        >
-          <ChevronRight size={18} />
-        </button>
+          {/* Right Scroll Button */}
+          <button
+            onClick={() => scroll("right")}
+            className="absolute right-2 top-1/2 -translate-y-1/2 bg-white border border-gray-200 shadow-md rounded-full p-2 hover:bg-[#FFF3D6] transition z-10"
+          >
+            <ChevronRight size={18} />
+          </button>
 
-        {/* Categories Scroll Row */}
-        <div
-          ref={scrollRef}
-          className="flex items-center gap-8 overflow-x-auto scroll-smooth px-14 snap-x snap-mandatory py-6"
-        >
-          {categories.map((cat, index) => {
-            const Icon = cat.icon;
-            const isActive = selectedCategory?.name === cat.name;
+          {/* Categories Scroll Row */}
+          <div
+            ref={scrollRef}
+            className="flex items-center gap-8 overflow-x-auto scroll-smooth px-14 snap-x snap-mandatory py-6"
+          >
+            {categories.map((cat, index) => {
+              const Icon = cat.icon;
+              const isActive = selectedCategory?.name === cat.name;
 
-            return (
-              <div
-                key={index}
-                onClick={() => {
-                  setSelectedCategory(cat);
-                  setSelectedSub(null);
-                }}
-                className={`snap-start flex-shrink-0 w-[130px] h-[160px] flex flex-col items-center justify-center rounded-2xl cursor-pointer transition-all duration-300 border
-                ${isActive
-                    ? "bg-[#157A4F] text-white border-[#157A4F] shadow-xl scale-105"
-                    : "bg-white text-gray-700 border-gray-200 hover:border-[#157A4F] hover:-translate-y-2 hover:shadow-lg"
-                  }`}
-              >
-                <Icon size={34} className="mb-3" />
-                <span className="text-sm font-medium text-center px-2">
-                  {cat.name}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Subcategories */}
-        {selectedCategory?.sub && (
-          <div className="flex gap-4 mt-10 justify-center flex-wrap">
-            {selectedCategory.sub.map((option, i) => (
-              <button
-                key={i}
-                onClick={() => setSelectedSub(option)}
-                className={`px-6 py-2 rounded-full text-sm font-medium transition
-                ${selectedSub === option
-                    ? "bg-[#157A4F] text-white shadow-md"
-                    : "bg-[#FFF3D6] text-gray-700 hover:bg-[#F5B849] hover:text-white"
-                  }`}
-              >
-                {option}
-              </button>
-            ))}
+              return (
+                <div
+                  key={index}
+                  onClick={() => {
+                    setSelectedCategory(cat);
+                    setSelectedSub(null);
+                  }}
+                  className={`snap-start flex-shrink-0 w-[130px] h-[160px] flex flex-col items-center justify-center rounded-2xl cursor-pointer transition-all duration-300 border
+                  ${isActive
+                      ? "bg-[#157A4F] text-white border-[#157A4F] shadow-xl scale-105"
+                      : "bg-white text-gray-700 border-gray-200 hover:border-[#157A4F] hover:-translate-y-2 hover:shadow-lg"
+                    }`}
+                >
+                  <Icon size={34} className="mb-3" />
+                  <span className="text-sm font-medium text-center px-2">
+                    {cat.name}
+                  </span>
+                </div>
+              );
+            })}
           </div>
-        )}
 
-      </div> {/* Close Choose Category */}
+          {/* Subcategories */}
+          {selectedCategory?.sub && (
+            <div className="flex gap-4 mt-10 justify-center flex-wrap">
+              {selectedCategory.sub.map((option, i) => (
+                <button
+                  key={i}
+                  onClick={() => setSelectedSub(option)}
+                  className={`px-6 py-2 rounded-full text-sm font-medium transition
+                  ${selectedSub === option
+                      ? "bg-[#157A4F] text-white shadow-md"
+                      : "bg-[#FFF3D6] text-gray-700 hover:bg-[#F5B849] hover:text-white"
+                    }`}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          )}
+
+        </div>
+      )}
 
       {/* Basic Information */}
       <div className="bg-white p-8 rounded-2xl border border-gray-200 space-y-8">
@@ -1384,6 +1665,7 @@ export default function PostAdForm({
                 <div><label className="text-sm font-medium text-gray-700">Age</label><input value={petAge} onChange={(e) => setPetAge(e.target.value)} placeholder="Pet age" className={inputStyle} /></div>
                 <div><label className="text-sm font-medium text-gray-700">Gender</label><select value={petGender} onChange={(e) => setPetGender(e.target.value)} className={inputStyle}><option value="">Select</option><option value="Male">Male</option><option value="Female">Female</option></select></div>
                 <div><label className="text-sm font-medium text-gray-700">Weight</label><input value={petWeight} onChange={(e) => setPetWeight(e.target.value)} placeholder="Weight (kg)" className={inputStyle} /></div>
+                <div><label className="text-sm font-medium text-gray-700">Price (₹)</label><input value={petPrice} onChange={(e) => setPetPrice(e.target.value)} placeholder="₹" className={inputStyle} /></div>
                 <div className="col-span-2"><label className="text-sm font-medium text-gray-700">Temperament (multiple)</label><div className="flex flex-wrap gap-2 mt-2">
                   {['friendly', 'active', 'quiet', 'protective', 'kid friendly'].map((temp) => (
                     <label key={temp} className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-full cursor-pointer"><input type="checkbox" checked={petTemperament.includes(temp)} onChange={(e) => {
@@ -1524,111 +1806,111 @@ export default function PostAdForm({
         )}
 
         {/* Scheduling */}
-        <div className="bg-white p-8 rounded-3xl shadow-md border border-gray-100">
+        {!isEditMode && (
+          <div className="bg-white p-8 rounded-3xl shadow-md border border-gray-100">
 
-          <h3 className="font-semibold text-2xl text-gray-800 mb-8 text-center">
-            Ad Scheduling
-          </h3>
+            <h3 className="font-semibold text-2xl text-gray-800 mb-8 text-center">
+              Ad Scheduling
+            </h3>
 
-          <div className="grid md:grid-cols-2 gap-8 items-start">
+            <div className="grid md:grid-cols-2 gap-8 items-start">
 
-            {/* LEFT COLUMN — CALENDAR */}
-            <div className="space-y-6">
+              {/* LEFT COLUMN — CALENDAR */}
+              <div className="space-y-6">
 
-              {/* Month & Year Selectors */}
-              <div className="flex gap-4 justify-center">
-                <select
-                  className="border border-gray-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-[#157A4F] focus:outline-none transition"
-                  value={currentMonth.getMonth()}
-                  onChange={(e) =>
-                    setCurrentMonth(
-                      new Date(currentMonth.getFullYear(), Number(e.target.value), 1)
-                    )
-                  }
-                >
-                  {months.map((month, i) => (
-                    <option key={i} value={i}>{month}</option>
-                  ))}
-                </select>
-
-                <select
-                  className="border border-gray-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-[#157A4F] focus:outline-none transition"
-                  value={currentMonth.getFullYear()}
-                  onChange={(e) =>
-                    setCurrentMonth(
-                      new Date(Number(e.target.value), currentMonth.getMonth(), 1)
-                    )
-                  }
-                >
-                  {years.map((year, i) => (
-                    <option key={i} value={year}>{year}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Calendar Card */}
-              <div className="bg-[#FFF3D6] p-6 rounded-2xl border border-gray-200 shadow-sm flex justify-center">
-                <DayPicker
-                  mode="multiple"
-                  selected={selectedDates}
-                  onSelect={setSelectedDates}
-                  fromDate={new Date()}
-                  disabled={{ before: new Date() }}
-                  month={currentMonth}
-                  onMonthChange={setCurrentMonth}
-                  className="text-sm"
-                />
-              </div>
-
-            </div>
-
-            {/* RIGHT COLUMN — SELECTED DATES */}
-            <div className="bg-gray-50 rounded-2xl border border-gray-200 shadow-inner flex flex-col h-[420px]">
-
-              {/* Header */}
-              <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-                <h4 className="text-lg font-semibold text-gray-700">
-                  Selected Dates
-                </h4>
-
-                {selectedDates.length > 0 && (
-                  <span className="bg-[#157A4F] text-white px-3 py-1 rounded-lg text-xs font-medium shadow">
-                    {selectedDates.length} Day{selectedDates.length > 1 && "s"}
-                  </span>
-                )}
-              </div>
-
-              {/* Scrollable Content */}
-              <div className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-[#157A4F]/60 scrollbar-track-transparent">
-
-                {selectedDates.length > 0 ? (
-                  <div className="flex flex-wrap gap-3">
-                    {[...selectedDates].sort((a, b) => new Date(a) - new Date(b)).map((date, index) => (
-                      <span
-                        key={index}
-                        className="bg-[#157A4F] text-white px-4 py-2 rounded-full text-sm shadow-md hover:scale-105 transition"
-                      >
-                        {formatDate(date)}
-                      </span>
+                {/* Month & Year Selectors */}
+                <div className="flex gap-4 justify-center">
+                  <select
+                    className="border border-gray-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-[#157A4F] focus:outline-none transition"
+                    value={currentMonth.getMonth()}
+                    onChange={(e) =>
+                      setCurrentMonth(
+                        new Date(currentMonth.getFullYear(), Number(e.target.value), 1)
+                      )
+                    }
+                  >
+                    {months.map((month, i) => (
+                      <option key={i} value={i}>{month}</option>
                     ))}
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center h-full text-gray-400 text-sm">
-                    No dates selected yet
-                  </div>
-                )}
+                  </select>
+
+                  <select
+                    className="border border-gray-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-[#157A4F] focus:outline-none transition"
+                    value={currentMonth.getFullYear()}
+                    onChange={(e) =>
+                      setCurrentMonth(
+                        new Date(Number(e.target.value), currentMonth.getMonth(), 1)
+                      )
+                    }
+                  >
+                    {years.map((year, i) => (
+                      <option key={i} value={year}>{year}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Calendar Card */}
+                <div className="bg-[#FFF3D6] p-6 rounded-2xl border border-gray-200 shadow-sm flex justify-center">
+                  <DayPicker
+                    mode="multiple"
+                    selected={selectedDates}
+                    onSelect={setSelectedDates}
+                    fromDate={new Date()}
+                    disabled={{ before: new Date() }}
+                    month={currentMonth}
+                    onMonthChange={setCurrentMonth}
+                    className="text-sm"
+                  />
+                </div>
+
+              </div>
+
+              {/* RIGHT COLUMN — SELECTED DATES */}
+              <div className="bg-gray-50 rounded-2xl border border-gray-200 shadow-inner flex flex-col h-[420px]">
+
+                {/* Header */}
+                <div className="p-6 border-b border-gray-200 flex justify-between items-center">
+                  <h4 className="text-lg font-semibold text-gray-700">
+                    Selected Dates
+                  </h4>
+
+                  {selectedDates.length > 0 && (
+                    <span className="bg-[#157A4F] text-white px-3 py-1 rounded-lg text-xs font-medium shadow">
+                      {selectedDates.length} Day{selectedDates.length > 1 && "s"}
+                    </span>
+                  )}
+                </div>
+
+                {/* Scrollable Content */}
+                <div className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-[#157A4F]/60 scrollbar-track-transparent">
+
+                  {selectedDates.length > 0 ? (
+                    <div className="flex flex-wrap gap-3">
+                      {[...selectedDates].sort((a, b) => new Date(a) - new Date(b)).map((date, index) => (
+                        <span
+                          key={index}
+                          className="bg-[#157A4F] text-white px-4 py-2 rounded-full text-sm shadow-md hover:scale-105 transition"
+                        >
+                          {formatDate(date)}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+                      No dates selected yet
+                    </div>
+                  )}
+
+                </div>
 
               </div>
 
             </div>
 
           </div>
-
-        </div>
-
+        )}
 
       </div>
-
     </div>
   );
 }

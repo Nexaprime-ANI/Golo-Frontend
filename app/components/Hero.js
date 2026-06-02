@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import Image from "next/image";
 import { API_ORIGIN_URL, getActiveHomepageBanners } from "../lib/api";
 
-const MAX_SLIDES = 5;
+const MAX_SLIDES = 10;
 
 function isRemoteUrl(url) {
   const normalized = String(url || "").trim();
@@ -41,6 +42,19 @@ function normalizeImageUrl(rawUrl) {
   }
 
   return url.replace(/\\/g, "/");
+}
+
+function extractMerchantId(item) {
+  return String(
+    item?.merchantId ||
+      item?.merchant?.merchantId ||
+      item?.merchant?.userId ||
+      item?.merchant?._id ||
+      item?.merchant?.id ||
+      item?.merchantStoreId ||
+      item?.userId ||
+      ""
+  ).trim();
 }
 
 export default function Hero() {
@@ -85,7 +99,21 @@ export default function Hero() {
             const status = String(item?.status || "").toLowerCase();
             return status === "approved" || status === "active" || !status;
           })
-          .map((item) => normalizeImageUrl(extractBannerImageUrl(item)))
+          .map((item) => {
+            const imageUrl = normalizeImageUrl(extractBannerImageUrl(item));
+            if (!imageUrl) return null;
+
+            const merchantId = extractMerchantId(item);
+            const href = merchantId
+              ? `/nearby-deals/store?merchantId=${encodeURIComponent(merchantId)}`
+              : null;
+
+            return {
+              url: imageUrl,
+              merchantId,
+              href,
+            };
+          })
           .filter(Boolean);
 
         if (isMounted) {
@@ -144,7 +172,7 @@ export default function Hero() {
     }
 
     setSlides((prev) => {
-      const next = prev.filter((u) => u !== normalized);
+      const next = prev.filter((slide) => slide.url !== normalized);
       return next;
     });
   };
@@ -152,7 +180,7 @@ export default function Hero() {
   if (loading) {
     return (
       <section className="relative w-full overflow-hidden bg-[#F8F6F2]">
-        <div className="relative w-full h-[420px] md:h-[520px] bg-[#ece9e1]" />
+        <div className="relative h-[240px] w-full bg-[#ece9e1] sm:h-[340px] md:h-[520px]" />
       </section>
     );
   }
@@ -175,7 +203,7 @@ export default function Hero() {
     <section className="relative w-full overflow-hidden bg-[#F8F6F2]">
 
       {/* Carousel Wrapper */}
-      <div className="relative w-full h-[420px] md:h-[520px]">
+      <div className="relative h-[240px] w-full sm:h-[340px] md:h-[520px]">
 
         {slides.map((slide, index) => (
           <div
@@ -184,32 +212,59 @@ export default function Hero() {
               index === current ? "opacity-100" : "opacity-0"
             }`}
           >
-            {isRemoteUrl(slide) ? (
-              // Avoid Next/image remote host restrictions & optimizer issues for third-party CDNs.
+            {slide.href ? (
+              <Link
+                href={slide.href}
+                className="absolute inset-0 block cursor-pointer"
+                aria-label={`Open merchant store for banner ${index + 1}`}
+              >
+                {isRemoteUrl(slide.url) ? (
+                  // Avoid Next/image remote host restrictions & optimizer issues for third-party CDNs.
+                  <img
+                    src={slide.url}
+                    alt={`Slide ${index + 1}`}
+                    className="absolute inset-0 h-full w-full object-cover"
+                    loading={index === 0 ? "eager" : "lazy"}
+                    referrerPolicy="no-referrer"
+                    onError={() => handleImageError(slide.url)}
+                  />
+                ) : (
+                  <Image
+                    src={slide.url}
+                    alt={`Slide ${index + 1}`}
+                    fill
+                    priority={index === 0}
+                    sizes="100vw"
+                    className="object-cover"
+                    onError={() => handleImageError(slide.url)}
+                  />
+                )}
+              </Link>
+            ) : isRemoteUrl(slide.url) ? (
               <img
-                src={slide}
+                src={slide.url}
                 alt={`Slide ${index + 1}`}
                 className="absolute inset-0 h-full w-full object-cover"
                 loading={index === 0 ? "eager" : "lazy"}
                 referrerPolicy="no-referrer"
-                onError={() => handleImageError(slide)}
+                onError={() => handleImageError(slide.url)}
               />
             ) : (
               <Image
-                src={slide}
+                src={slide.url}
                 alt={`Slide ${index + 1}`}
                 fill
                 priority={index === 0}
                 sizes="100vw"
                 className="object-cover"
-                onError={() => handleImageError(slide)}
+                onError={() => handleImageError(slide.url)}
               />
             )}
           </div>
         ))}
 
         {/* Dark Overlay for premium look */}
-        <div className="absolute inset-0 bg-black/20"></div>
+        <div className="pointer-events-none absolute inset-0 bg-black/20"></div>
 
         {/* Dots Indicator */}
         {slides.length > 1 && (
