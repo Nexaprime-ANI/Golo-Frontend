@@ -88,6 +88,37 @@ const MERCHANT_CATEGORIES = [
   },
 ];
 
+function toFiniteNumber(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const nextValue = Number(value);
+  return Number.isFinite(nextValue) ? nextValue : null;
+}
+
+function normalizeLocationPayload(location) {
+  const latitude = toFiniteNumber(
+    location?.latitude ?? location?.lat ?? location?.coordinates?.lat
+  );
+  const longitude = toFiniteNumber(
+    location?.longitude ?? location?.lng ?? location?.coordinates?.lng
+  );
+  const address = String(
+    location?.address ?? location?.displayName ?? location?.name ?? ""
+  ).trim();
+
+  return { latitude, longitude, address };
+}
+
+function isValidStoreCoordinates({ latitude, longitude }) {
+  return (
+    Number.isFinite(latitude) &&
+    Number.isFinite(longitude) &&
+    latitude >= -90 &&
+    latitude <= 90 &&
+    longitude >= -180 &&
+    longitude <= 180
+  );
+}
+
 export default function RegisterPage() {
   const quotes = [
     "Maximize your ROI with our AI-driven ad placement strategy.",
@@ -179,6 +210,27 @@ export default function RegisterPage() {
     return () => clearInterval(interval);
   }, [quotes.length]);
 
+  const handleAccountTypeChange = (nextAccountType) => {
+    setAccountType(nextAccountType);
+    setError("");
+    setSuccess("");
+    setIsCategoryOpen(false);
+    setIsSubCategoryOpen(false);
+  };
+
+  const handleAccountToggleClick = (event) => {
+    const option = event.target.closest("[data-account-type]");
+    if (!option) return;
+    handleAccountTypeChange(option.dataset.accountType);
+  };
+
+  const handleAccountToggleKeyDown = (event) => {
+    if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+      event.preventDefault();
+      handleAccountTypeChange(accountType === "user" ? "merchant" : "user");
+    }
+  };
+
   const handleRegister = async (e) => {
     e.preventDefault();
     setError("");
@@ -195,11 +247,8 @@ export default function RegisterPage() {
         return;
       }
     } else {
-      const hasValidCoordinates =
-        typeof storeCoordinates.latitude === "number" &&
-        !Number.isNaN(storeCoordinates.latitude) &&
-        typeof storeCoordinates.longitude === "number" &&
-        !Number.isNaN(storeCoordinates.longitude);
+      const normalizedCoordinates = normalizeLocationPayload(storeCoordinates);
+      const hasValidCoordinates = isValidStoreCoordinates(normalizedCoordinates);
 
       if (!storeName.trim() || !storeEmail.trim() || !storeCategory || !storeSubCategory || !storePassword.trim()) {
         setError("Store name, email, category, sub category, and password are required.");
@@ -225,6 +274,7 @@ export default function RegisterPage() {
         return p.startsWith('+') ? p : `+${cleaned}`; // Ensure it starts with +
       };
 
+      const normalizedStoreCoordinates = normalizeLocationPayload(storeCoordinates);
       const registrationData = accountType === "user"
         ? {
           name,
@@ -245,8 +295,8 @@ export default function RegisterPage() {
           storeSubCategory,
           contactNumber: formatPhone(contactNumber),
           storeLocation,
-          storeLocationLatitude: storeCoordinates.latitude,
-          storeLocationLongitude: storeCoordinates.longitude,
+          storeLocationLatitude: normalizedStoreCoordinates.latitude,
+          storeLocationLongitude: normalizedStoreCoordinates.longitude,
         };
 
       await register(registrationData);
@@ -269,16 +319,15 @@ export default function RegisterPage() {
   };
 
   const handleMerchantLocationSelect = (location) => {
-    const latitude = Number(location?.latitude);
-    const longitude = Number(location?.longitude);
-    const hasValidCoordinates = Number.isFinite(latitude) && Number.isFinite(longitude);
+    const { latitude, longitude, address } = normalizeLocationPayload(location);
+    const hasValidCoordinates = isValidStoreCoordinates({ latitude, longitude });
 
     if (!hasValidCoordinates) {
       setError("Could not capture valid coordinates. Please try again.");
       return;
     }
 
-    setStoreLocation(location?.address || `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+    setStoreLocation(address || `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
     setStoreCoordinates({ latitude, longitude });
     setError("");
   };
@@ -345,7 +394,7 @@ export default function RegisterPage() {
             <div className="card-bg-decoration top"></div>
             <div className="card-bg-decoration bottom"></div>
 
-            <div className="login-card">
+            <div className={`login-card register-card ${accountType === "merchant" ? "merchant-register-card" : ""}`}>
               <h2>
                 {accountType === "user"
                   ? "Join GOLO Network Group"
@@ -359,68 +408,32 @@ export default function RegisterPage() {
               </p>
 
               {/* TOGGLE */}
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "center",
-                  marginBottom: "25px"
-                }}
-              >
+              <div className="register-toggle-wrap">
                 <div
-                  style={{
-                    position: "relative",
-                    display: "flex",
-                    background: "#F3F4F6",
-                    borderRadius: "999px",
-                    padding: "4px",
-                    width: "100%",
-                    maxWidth: "300px"
-                  }}
+                  className="register-toggle"
+                  role="tablist"
+                  aria-label="Choose account type"
+                  onClick={handleAccountToggleClick}
+                  onKeyDown={handleAccountToggleKeyDown}
                 >
-                  {/* Sliding Background */}
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "4px",
-                      left: accountType === "user" ? "4px" : "50%",
-                      width: "calc(50% - 4px)",
-                      height: "calc(100% - 8px)",
-                      background: "#F59E0B",
-                      borderRadius: "999px",
-                      transition: "all 0.3s ease"
-                    }}
-                  ></div>
+                  <div className={`register-toggle-indicator ${accountType === "merchant" ? "merchant" : "user"}`}></div>
 
                   <div
-                    onClick={() => setAccountType("user")}
-                    style={{
-                      flex: 1,
-                      textAlign: "center",
-                      padding: "8px 0",
-                      cursor: "pointer",
-                      fontWeight: "600",
-                      fontSize: "14px",
-                      zIndex: 1,
-                      color:
-                        accountType === "user" ? "#fff" : "#6B7280"
-                    }}
+                    role="tab"
+                    tabIndex={0}
+                    data-account-type="user"
+                    className={`register-toggle-option ${accountType === "user" ? "active" : ""}`}
+                    aria-selected={accountType === "user"}
                   >
                     User
                   </div>
 
                   <div
-                    onClick={() => setAccountType("merchant")}
-                    style={{
-                      flex: 1,
-                      textAlign: "center",
-                      padding: "8px 0",
-                      cursor: "pointer",
-                      fontWeight: "600",
-                      fontSize: "14px",
-                      zIndex: 1,
-                      color:
-                        accountType === "merchant" ? "#fff" : "#6B7280"
-                    }}
+                    role="tab"
+                    tabIndex={0}
+                    data-account-type="merchant"
+                    className={`register-toggle-option ${accountType === "merchant" ? "active" : ""}`}
+                    aria-selected={accountType === "merchant"}
                   >
                     Merchant
                   </div>
@@ -437,7 +450,7 @@ export default function RegisterPage() {
                 </span>
               </div>
 
-              <form onSubmit={handleRegister}>
+              <form onSubmit={handleRegister} className="register-form">
                 {/* Error / Success Messages */}
                 {error && (
                   <p style={{ color: "red", fontSize: "13px", marginBottom: "15px", textAlign: "center" }}>
@@ -452,7 +465,7 @@ export default function RegisterPage() {
 
                 {/* FORM SWITCH */}
                 {accountType === "user" ? (
-                  <>
+                  <div key="user-registration-fields" role="tabpanel" aria-label="User registration fields">
                     <div className="input-group">
                       <label>Name</label>
                       <div className="input-wrapper">
@@ -507,9 +520,9 @@ export default function RegisterPage() {
                         </div>
                       </div>
                     </div>
-                  </>
+                  </div>
                 ) : (
-                  <>
+                  <div key="merchant-registration-fields" role="tabpanel" aria-label="Merchant registration fields">
                     <div className="input-group">
                       <label>Store Name</label>
                       <div className="input-wrapper">
@@ -686,8 +699,7 @@ export default function RegisterPage() {
                       <div style={{ marginTop: "10px" }}>
                         <StoreLocationMap
                           location={
-                            typeof storeCoordinates.latitude === "number" &&
-                            typeof storeCoordinates.longitude === "number"
+                            isValidStoreCoordinates(storeCoordinates)
                               ? {
                                   latitude: storeCoordinates.latitude,
                                   longitude: storeCoordinates.longitude,
@@ -700,7 +712,9 @@ export default function RegisterPage() {
                         />
                       </div>
                       <p style={{ marginTop: "8px", fontSize: "11px", color: "#6B7280" }}>
-                        This location will be used to show your offers in nearby deals.
+                        {isValidStoreCoordinates(storeCoordinates)
+                          ? `Selected coordinates: ${storeCoordinates.latitude.toFixed(6)}, ${storeCoordinates.longitude.toFixed(6)}`
+                          : "This location will be used to show your offers in nearby deals."}
                       </p>
                     </div>
 
@@ -719,7 +733,7 @@ export default function RegisterPage() {
                         </div>
                       </div>
                     </div>
-                  </>
+                  </div>
                 )}
 
                 <div className="terms-checkbox">

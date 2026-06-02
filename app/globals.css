@@ -584,6 +584,95 @@ body {
   box-shadow: 0 20px 50px var(--card-shadow);
 }
 
+.register-card {
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.merchant-register-card {
+  width: min(560px, calc(100vw - 32px));
+  padding: 42px;
+}
+
+.register-toggle-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 25px;
+}
+
+.register-toggle {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100%;
+  max-width: 300px;
+  padding: 4px;
+  border-radius: 999px;
+  background: #F3F4F6;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.register-toggle-indicator {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc(50% - 4px);
+  border-radius: 999px;
+  background: #F59E0B;
+  transition: transform 0.25s ease;
+  pointer-events: none;
+}
+
+.register-toggle-indicator.merchant {
+  transform: translateX(calc(100% + 4px));
+}
+
+.register-toggle-option {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  border-radius: 999px;
+  color: #6B7280;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  user-select: none;
+}
+
+.register-toggle-option.active {
+  color: #fff;
+}
+
+.register-toggle-option:focus-visible {
+  outline: 2px solid #157A4F;
+  outline-offset: 3px;
+}
+
+.register-form {
+  position: relative;
+}
+
+@media (max-width: 1023px) {
+  .register-card,
+  .merchant-register-card {
+    width: 100%;
+    max-width: 560px;
+    max-height: none;
+    padding: 28px 20px;
+    overflow: visible;
+  }
+
+  .register-toggle {
+    max-width: none;
+  }
+}
+
 /* Social Buttons */
 .social-buttons {
   display: flex;

@@ -18,7 +18,7 @@ import {
 import { API_ORIGIN_URL, getStoredAccessToken } from "../lib/api";
 
 const API_BASE = "/api";
-const SOCKET_ORIGIN = API_ORIGIN_URL || "http://localhost:3002";
+const SOCKET_ORIGIN = API_ORIGIN_URL;
 const CALL_ICE_SERVERS = [{ urls: "stun:stun.l.google.com:19302" }];
 
 const formatCallDuration = (value) => {

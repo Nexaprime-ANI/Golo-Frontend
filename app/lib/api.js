@@ -30,16 +30,15 @@ export async function submitUserReport(userId, reason, description) {
 // Centralized API Layer — Choja Frontend → ads-microservice
 // ============================================================
 
-const FALLBACK_API_URL = 'http://localhost:3002';
 // Canonical storage keys for auth tokens. Keep fallbacks for backward compatibility.
 const ACCESS_TOKEN_STORAGE_KEY = 'accessToken';
 const REFRESH_TOKEN_STORAGE_KEY = 'refreshToken';
 
-function normalizeBackendApiBaseUrl(rawValue, fallbackUrl = FALLBACK_API_URL) {
+function normalizeBackendApiBaseUrl(rawValue) {
     const trimmedValue = String(rawValue || '').trim();
 
     if (!trimmedValue) {
-        return fallbackUrl;
+        return '';
     }
 
     const protocolMatches = [...trimmedValue.matchAll(/https?:\/\//g)];
@@ -56,7 +55,6 @@ function normalizeBackendApiBaseUrl(rawValue, fallbackUrl = FALLBACK_API_URL) {
 
 export const API_BASE_URL = normalizeBackendApiBaseUrl(
     process.env.NEXT_PUBLIC_API_URL,
-    FALLBACK_API_URL,
 );
 export const API_ORIGIN_URL = API_BASE_URL;
 // Keep the backend base URL as a plain origin so auth routes resolve to /users/*.
@@ -139,6 +137,16 @@ export function clearStoredAuthTokens() {
 // --------------- Core Fetch Wrapper ---------------
 
 export async function apiClient(endpoint, options = {}) {
+    if (!BASE_URL) {
+        const configError = new Error('NEXT_PUBLIC_API_URL is not configured');
+        configError.status = 0;
+        configError.data = {
+            message: 'Backend API URL is missing. Set NEXT_PUBLIC_API_URL in the frontend environment.',
+            endpoint,
+        };
+        throw configError;
+    }
+
     const url = `${BASE_URL}${endpoint}`;
     const isPublicAuthEndpoint = [...PUBLIC_AUTH_ENDPOINTS].some((path) => endpoint.startsWith(path));
 
@@ -163,7 +171,7 @@ export async function apiClient(endpoint, options = {}) {
         response = await fetch(url, config);
     } catch (error) {
         const networkError = new Error(
-            `Unable to connect to API at ${BASE_URL || '(same-origin)'}. ` +
+            `Unable to connect to API at ${BASE_URL}. ` +
             `Please ensure the backend is running and NEXT_PUBLIC_API_URL is correct.`
         );
         networkError.status = 0;
@@ -278,6 +286,8 @@ export async function registerUser({
     storeSubCategory,
     contactNumber,
     storeLocation,
+    storeLocationLatitude,
+    storeLocationLongitude,
 }) {
     return apiClient('/users/register', {
         method: 'POST',
@@ -294,6 +304,8 @@ export async function registerUser({
             storeSubCategory,
             contactNumber,
             storeLocation,
+            storeLocationLatitude,
+            storeLocationLongitude,
         }),
     });
 }
@@ -704,7 +716,7 @@ export async function getHomeSectionConfig() {
     });
 }
 
-const LOCAL_BACKEND_URL = API_ORIGIN_URL || 'http://localhost:3002';
+const LOCAL_BACKEND_URL = API_ORIGIN_URL;
 let nearbyOffersRouteMissingOnPrimary = false;
 const NEARBY_OFFERS_PRIMARY_UNSUPPORTED_KEY = 'golo_nearby_offers_primary_unsupported';
 
