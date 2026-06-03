@@ -625,7 +625,7 @@ function NearbyDealsPageContent() {
           {showMobileFilters ? "Hide Filters" : "Show Filters"}
         </button>
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[260px_1fr]">
-          <aside className={`${showMobileFilters ? "block" : "hidden"} max-h-[68vh] overflow-y-auto rounded-xl border border-gray-200 bg-white p-3 shadow-sm lg:sticky lg:top-28 lg:block lg:max-h-none lg:overflow-visible lg:p-4`}>
+          <aside className={`${showMobileFilters ? "block" : "hidden"} max-h-[68vh] overflow-y-auto rounded-xl border border-gray-200 bg-white p-3 shadow-sm lg:sticky lg:top-28 lg:block lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto lg:p-4`}>
             <div className="mb-4 flex items-center justify-between lg:mb-5">
               <button className="inline-flex items-center gap-2 text-sm font-semibold text-gray-700">
                 <SlidersHorizontal size={14} /> Filters
@@ -653,12 +653,12 @@ function NearbyDealsPageContent() {
 
             <div className="mb-4 lg:mb-6">
               <p className="mb-3 text-[11px] font-bold tracking-wide text-gray-400">OFFER TYPE</p>
-              <div className="grid max-h-36 grid-cols-2 gap-2 overflow-y-auto pr-1 text-xs text-gray-700 lg:block lg:max-h-none lg:space-y-2 lg:overflow-visible lg:pr-0">
+              <div className="grid max-h-[136px] grid-cols-2 gap-2 overflow-y-auto pr-1 text-xs text-gray-700 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent lg:grid-cols-1 lg:max-h-[150px] lg:pr-2">
                 {OFFER_TYPES.map((item) => (
-                  <label key={item} className="flex items-center gap-2">
+                  <label key={item} className="flex min-h-6 items-center gap-2">
                     <input
                       type="checkbox"
-                      className="h-3.5 w-3.5 rounded border-gray-300"
+                      className="h-3.5 w-3.5 shrink-0 rounded border-gray-300"
                       checked={selectedOfferTypes[item]}
                       onChange={(e) =>
                         setSelectedOfferTypes((prev) => ({
@@ -667,7 +667,7 @@ function NearbyDealsPageContent() {
                         }))
                       }
                     />
-                    {item}
+                    <span className="min-w-0 truncate" title={item}>{item}</span>
                   </label>
                 ))}
               </div>
