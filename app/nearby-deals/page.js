@@ -369,13 +369,15 @@ function NearbyDealsPageContent() {
       // otherwise results get mixed with the current device location.
       const fetchLat = hasLocationQuery ? (hasManualCoordinates ? manualLatitude : undefined) : (hasManualCoordinates ? manualLatitude : resolvedLat);
       const fetchLng = hasLocationQuery ? (hasManualCoordinates ? manualLongitude : undefined) : (hasManualCoordinates ? manualLongitude : resolvedLng);
+      const hasCoordinateSearch = typeof fetchLat === "number" && typeof fetchLng === "number";
+      const locationForRequest = hasCoordinateSearch ? "" : location;
 
       try {
         const response = await getNearbyOffers({
           lat: fetchLat,
           lng: fetchLng,
           radiusKm: distanceRadius,
-          location,
+          location: locationForRequest,
           q: query,
           category: selectedCategory || undefined,
           sort: sortBy,
@@ -396,7 +398,7 @@ function NearbyDealsPageContent() {
         // returned no results for that location, do NOT fall back to other
         // nearby offers — show an empty state instead. This prevents showing
         // unrelated deals (e.g., Kolhapur) for a typed location like "Mumbai".
-        if (hasLocationQuery && primaryRows.length === 0) {
+        if (hasLocationQuery && !hasCoordinateSearch && primaryRows.length === 0) {
           if (fetchSeq !== nearbyFetchSeqRef.current) return;
           setRawOffers([]);
           setLoading(false);
@@ -410,7 +412,7 @@ function NearbyDealsPageContent() {
             lat: undefined,
             lng: undefined,
             radiusKm: distanceRadius,
-            location,
+            location: locationForRequest,
             q: query,
             category: selectedCategory || undefined,
             sort: sortBy,
@@ -500,7 +502,9 @@ function NearbyDealsPageContent() {
       });
     }
 
-    if (!location) {
+    const hasCoordinateSearch = manualLatitude !== null && manualLongitude !== null;
+
+    if (!location || hasCoordinateSearch) {
       return sortedRows;
     }
 

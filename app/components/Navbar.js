@@ -7,7 +7,30 @@ import { useAuth } from "../context/AuthContext";
 import AuthRequiredModal from "./AuthRequiredModal";
 import { getNotifications, markNotificationRead, markAllNotificationsRead } from "../lib/api";
 import { normalizeAppPath } from "../lib/path";
-import { searchLocations } from "../services/leafletService";
+import { reverseGeocode, searchLocations } from "../services/leafletService";
+
+const CURRENT_LOCATION_STORAGE_KEY = "golo_current_location";
+
+function getShortLocationLabel(locationDetails) {
+  const rawAddress = String(
+    locationDetails?.address ||
+    locationDetails?.displayName ||
+    locationDetails?.name ||
+    "",
+  );
+
+  const parts = rawAddress
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .filter((part) => !/^\d{4,}$/.test(part));
+
+  if (parts.length >= 2) {
+    return parts.slice(0, 2).join(", ");
+  }
+
+  return parts[0] || "Current Location";
+}
 
 function NavbarContent({
   searchQuery: externalSearchQuery = "",
@@ -16,6 +39,11 @@ function NavbarContent({
   const searchParams = useSearchParams();
   const [searchQuery, setSearchQuery] = useState(externalSearchQuery || searchParams.get("q") || "");
   const [location, setLocation] = useState(searchParams.get("location") || "");
+  const [currentLocationLabel, setCurrentLocationLabel] = useState("");
+  const [currentLocationCoordinates, setCurrentLocationCoordinates] = useState(null);
+  const hasManualLocationRef = useRef(false);
+  const hasCurrentLocationAccessRef = useRef(false);
+  const urlLocation = searchParams.get("location") || "";
 
   // Sync with external prop if it changes
   useEffect(() => {
@@ -25,8 +53,92 @@ function NavbarContent({
   }, [externalSearchQuery]);
 
   useEffect(() => {
-    setLocation(searchParams.get("location") || "");
-  }, [searchParams]);
+    if (urlLocation) {
+      hasManualLocationRef.current = true;
+      hasCurrentLocationAccessRef.current = false;
+      setLocation(urlLocation);
+      return;
+    }
+
+    if (
+      currentLocationLabel &&
+      hasCurrentLocationAccessRef.current &&
+      !hasManualLocationRef.current
+    ) {
+      setLocation(currentLocationLabel);
+    }
+  }, [urlLocation, currentLocationLabel]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if (urlLocation) return;
+
+    if (!navigator?.geolocation) {
+      localStorage.removeItem(CURRENT_LOCATION_STORAGE_KEY);
+      if (!hasManualLocationRef.current) {
+        setCurrentLocationLabel("");
+        setCurrentLocationCoordinates(null);
+        setLocation("");
+      }
+      return;
+    }
+
+    let cancelled = false;
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        if (cancelled) return;
+
+        const coordinates = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        };
+
+        hasCurrentLocationAccessRef.current = true;
+        setCurrentLocationCoordinates(coordinates);
+
+        try {
+          const locationDetails = await reverseGeocode(coordinates.lng, coordinates.lat);
+          if (cancelled) return;
+
+          const label = getShortLocationLabel(locationDetails);
+          setCurrentLocationLabel(label);
+          setLocation((prev) => {
+            if (urlLocation || hasManualLocationRef.current) return prev;
+            return label;
+          });
+          localStorage.setItem(
+            CURRENT_LOCATION_STORAGE_KEY,
+            JSON.stringify({ label, coordinates, updatedAt: Date.now() }),
+          );
+        } catch {
+          const fallbackLabel = "Current Location";
+          if (cancelled) return;
+          hasCurrentLocationAccessRef.current = true;
+          setCurrentLocationLabel(fallbackLabel);
+          setLocation((prev) => (hasManualLocationRef.current ? prev : fallbackLabel));
+        }
+      },
+      () => {
+        hasCurrentLocationAccessRef.current = false;
+        setCurrentLocationLabel("");
+        setCurrentLocationCoordinates(null);
+        localStorage.removeItem(CURRENT_LOCATION_STORAGE_KEY);
+        if (!hasManualLocationRef.current && !urlLocation) {
+          setLocation("");
+        }
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 8000,
+        maximumAge: 5 * 60 * 1000,
+      },
+    );
+
+    return () => {
+      cancelled = true;
+    };
+  }, [urlLocation]);
 
   const handleSearchChange = (val) => {
     setSearchQuery(val);
@@ -34,6 +146,8 @@ function NavbarContent({
   };
 
   const handleLocationChange = (val) => {
+    hasManualLocationRef.current = true;
+    hasCurrentLocationAccessRef.current = false;
     setLocation(val);
     setShowSuggestions(true);
   };
@@ -207,13 +321,23 @@ function NavbarContent({
   const runSearch = (nextSearch = searchQuery, nextLocation = location, nextCoordinates = null) => {
     const trimmedSearch = nextSearch.trim();
     const trimmedLocation = nextLocation.trim();
+    const resolvedCoordinates =
+      nextCoordinates ||
+      (trimmedLocation && trimmedLocation === currentLocationLabel ? currentLocationCoordinates : null);
+    const isDetectedCurrentLocation =
+      Boolean(trimmedLocation) &&
+      Boolean(currentLocationLabel) &&
+      trimmedLocation === currentLocationLabel &&
+      resolvedCoordinates &&
+      Number.isFinite(resolvedCoordinates.lat) &&
+      Number.isFinite(resolvedCoordinates.lng);
 
     const params = new URLSearchParams();
     if (trimmedSearch) params.set("q", trimmedSearch);
-    if (trimmedLocation) params.set("location", trimmedLocation);
-    if (nextCoordinates && Number.isFinite(nextCoordinates.lat) && Number.isFinite(nextCoordinates.lng)) {
-      params.set("lat", String(nextCoordinates.lat));
-      params.set("lng", String(nextCoordinates.lng));
+    if (trimmedLocation && !isDetectedCurrentLocation) params.set("location", trimmedLocation);
+    if (resolvedCoordinates && Number.isFinite(resolvedCoordinates.lat) && Number.isFinite(resolvedCoordinates.lng)) {
+      params.set("lat", String(resolvedCoordinates.lat));
+      params.set("lng", String(resolvedCoordinates.lng));
     }
 
     const isNearbySurface = pathname.startsWith("/nearby-deals");
@@ -233,6 +357,17 @@ function NavbarContent({
       runSearch();
       setShowSuggestions(false);
     }
+  };
+
+  const openMobileLocationPicker = () => {
+    if (!isAuthenticated) {
+      setShowAuthPrompt(true);
+      return;
+    }
+
+    const currentQuery = typeof window !== "undefined" ? window.location.search : "";
+    const redirectPath = `${pathname}${currentQuery}`;
+    router.push(`/select-location?redirect=${encodeURIComponent(redirectPath)}`);
   };
 
   const handleLogout = async () => {
@@ -352,6 +487,7 @@ function NavbarContent({
                 <button
                   onClick={() => {
                     setLocation("");
+                    hasManualLocationRef.current = false;
                     setShowSuggestions(false);
                     runSearch(searchQuery, "");
                   }}
@@ -375,6 +511,8 @@ function NavbarContent({
                         onClick={() => {
                           const nextLocation = place.displayName || place.address || place.name || place.city || "";
                           const nextCoordinates = place.coordinates || null;
+                          hasManualLocationRef.current = true;
+                          hasCurrentLocationAccessRef.current = false;
                           setLocation(nextLocation);
                           setShowSuggestions(false);
                           runSearch(searchQuery, nextLocation, nextCoordinates);
@@ -622,10 +760,10 @@ function NavbarContent({
           )}
         </div>
         </div>
-        <div className="-mx-4 border-t border-[#d7a02a]/40 px-4 pb-2 md:hidden">
-          <div className="grid grid-cols-[1fr_0.9fr_auto] gap-2">
-            <div className="flex min-w-0 items-center rounded-full bg-white px-3 py-2 shadow-sm">
-              <Search size={15} className="mr-2 shrink-0 text-[#157A4F]" />
+        <div className="-mx-4 px-4 pb-2.5 pt-1 md:hidden">
+          <div className="mx-auto flex h-[46px] w-full max-w-[358px] items-center rounded-full bg-white px-4 shadow-[0_12px_30px_rgba(15,23,42,0.12)]">
+            <div className="flex min-w-0 flex-1 items-center">
+              <Search size={19} strokeWidth={2} className="mr-2.5 shrink-0 text-[#7b7f86]" />
               <input
                 type="text"
                 value={searchQuery}
@@ -634,15 +772,15 @@ function NavbarContent({
                 onFocus={() => {
                   if (!isAuthenticated) setShowAuthPrompt(true);
                 }}
-                placeholder="Search"
-                className="min-w-0 flex-1 bg-transparent text-xs text-black outline-none placeholder-gray-500"
+                placeholder="Search for services,"
+                className="min-w-0 flex-1 bg-transparent text-[15px] font-medium text-[#1f2933] outline-none placeholder:text-[#85878b]"
                 readOnly={!isAuthenticated}
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => handleSearchChange("")}
-                  className="ml-1 text-gray-500"
+                  className="ml-1 text-gray-400"
                   aria-label="Clear search"
                 >
                   <X size={14} />
@@ -650,87 +788,51 @@ function NavbarContent({
               )}
             </div>
 
-            <div className="relative min-w-0" ref={mobileDropdownRef}>
-              <div className="flex min-w-0 items-center rounded-full bg-white px-3 py-2 shadow-sm">
-                <MapPin size={15} className="mr-2 shrink-0 text-[#157A4F]" />
-                <input
-                  type="text"
-                  value={location}
-                  onChange={(e) => handleLocationChange(e.target.value)}
-                  onKeyDown={handleSearch}
-                  onFocus={() => {
-                    if (!isAuthenticated) {
-                      setShowAuthPrompt(true);
-                      return;
-                    }
-                    setShowSuggestions(true);
-                  }}
-                  placeholder="Location"
-                  className="min-w-0 flex-1 bg-transparent text-xs text-black outline-none placeholder-gray-500"
-                  readOnly={!isAuthenticated}
-                />
+            <div className="relative ml-2 shrink-0" ref={mobileDropdownRef}>
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={openMobileLocationPicker}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter" && event.key !== " ") return;
+                  event.preventDefault();
+                  openMobileLocationPicker();
+                }}
+                className="flex h-9 min-w-[96px] max-w-[132px] items-center rounded-full bg-[#f7fffb] px-3 text-left"
+                aria-label="Change location"
+              >
+                <MapPin size={16} strokeWidth={2.4} className="mr-1.5 shrink-0 text-[#ff7a1a]" />
+                <span className="min-w-0 flex-1 truncate text-[13px] font-bold text-[#2d2d2d]">
+                  {location || "Location"}
+                </span>
                 {location && (
-                  <button
-                    type="button"
-                    onClick={() => {
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={(event) => {
+                      event.stopPropagation();
                       setLocation("");
+                      hasManualLocationRef.current = false;
                       setShowSuggestions(false);
                       runSearch(searchQuery, "");
                     }}
-                    className="ml-1 text-gray-500"
+                    onKeyDown={(event) => {
+                      if (event.key !== "Enter" && event.key !== " ") return;
+                      event.preventDefault();
+                      event.stopPropagation();
+                      setLocation("");
+                      hasManualLocationRef.current = false;
+                      setShowSuggestions(false);
+                      runSearch(searchQuery, "");
+                    }}
+                    className="ml-1 text-gray-400"
                     aria-label="Clear location"
                   >
-                    <X size={14} />
-                  </button>
+                    <X size={12} />
+                  </span>
                 )}
               </div>
-
-              {showSuggestions && (
-                <div className="absolute top-11 right-0 z-[9999] w-[min(90vw,320px)] rounded-xl border border-gray-200 bg-white py-2 shadow-lg">
-                  {locationLoading ? (
-                    <div className="px-4 py-3 text-sm text-gray-500">Searching cities...</div>
-                  ) : locationSuggestions.length > 0 ? (
-                    locationSuggestions.slice(0, 6).map((place, index) => (
-                      <button
-                        type="button"
-                        key={`${place.displayName || place.name || index}-${index}-mobile`}
-                        onClick={() => {
-                          const nextLocation = place.displayName || place.address || place.name || place.city || "";
-                          const nextCoordinates = place.coordinates || null;
-                          setLocation(nextLocation);
-                          setShowSuggestions(false);
-                          runSearch(searchQuery, nextLocation, nextCoordinates);
-                        }}
-                        className="flex w-full items-start gap-3 px-4 py-3 text-left transition hover:bg-gray-100"
-                      >
-                        <MapPin size={16} className="mt-0.5 shrink-0 text-[#157A4F]" />
-                        <span className="min-w-0">
-                          <span className="block truncate text-sm font-medium text-black">
-                            {place.name || place.city || place.displayName?.split(",")[0] || "Location"}
-                          </span>
-                          <span className="block truncate text-xs text-gray-500">
-                            {place.displayName || place.address || place.state || "India"}
-                          </span>
-                        </span>
-                      </button>
-                    ))
-                  ) : (
-                    <div className="px-4 py-3 text-sm text-gray-500">No city matches found.</div>
-                  )}
-                </div>
-              )}
             </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                runSearch();
-                setShowSuggestions(false);
-              }}
-              className="rounded-full bg-[#157A4F] px-3 text-xs font-bold text-white shadow-sm"
-            >
-              Go
-            </button>
           </div>
         </div>
         <nav className="-mx-4 flex gap-2 overflow-x-auto border-t border-[#d7a02a]/40 px-4 pb-2 text-[12px] font-semibold text-white md:hidden">

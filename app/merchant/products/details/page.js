@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Pencil, User } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
@@ -21,6 +21,7 @@ function MerchantProductDetailsContent() {
   const searchParams = useSearchParams();
   const productId = searchParams.get("id");
   const { user, loading, logout } = useAuth();
+  const fileInputRef = useRef(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -35,6 +36,7 @@ function MerchantProductDetailsContent() {
     stockQuantity: "",
     description: "",
     image: "/images/deal2.avif",
+    images: [],
   });
 
   const handleMerchantLogout = async () => {
@@ -60,6 +62,7 @@ function MerchantProductDetailsContent() {
         price: Number(formData.price || 0),
         stockQuantity: Number(formData.stockQuantity || 0),
         description: formData.description,
+        images: Array.isArray(formData.images) ? formData.images : [],
       };
 
       const res = await updateMerchantProduct(formData.id, payload);
@@ -72,6 +75,7 @@ function MerchantProductDetailsContent() {
         stockQuantity: String(updated?.stockQuantity ?? formData.stockQuantity),
         description: updated?.description || formData.description,
         image: updated?.image || formData.image,
+        images: updated?.images || formData.images || [],
       };
 
       setOriginalData(mapped);
@@ -97,6 +101,37 @@ function MerchantProductDetailsContent() {
       ...prev,
       [field]: value
     }));
+  };
+
+  const handleImageUpload = (event) => {
+    const files = Array.from(event.target.files || []);
+    if (!files.length) return;
+
+    const file = files[0];
+    if (!file?.type?.startsWith("image/")) {
+      setFetchError("Please select a valid image file.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (loadEvent) => {
+      const imageData = loadEvent.target?.result;
+      if (!imageData) return;
+
+      setFormData((prev) => ({
+        ...prev,
+        images: [imageData],
+        image: imageData,
+      }));
+      setFetchError("");
+    };
+    reader.readAsDataURL(file);
+
+    event.target.value = "";
+  };
+
+  const triggerImageUpload = () => {
+    fileInputRef.current?.click();
   };
 
   useEffect(() => {
@@ -131,6 +166,9 @@ function MerchantProductDetailsContent() {
           stockQuantity: String(product?.stockQuantity || ""),
           description: product?.description || "",
           image: product?.image || "/images/deal2.avif",
+          images: Array.isArray(product?.images)
+            ? product.images
+            : (product?.image ? [product.image] : []),
         };
         setOriginalData(mapped);
         setFormData(mapped);
@@ -215,6 +253,22 @@ function MerchantProductDetailsContent() {
                   <div className="rounded-[12px] border border-[#e5e5e5] bg-[#fbfbfb] p-3">
                     <div className="relative overflow-hidden rounded-[10px] border border-[#e5e5e5] bg-[#f4f4f4] h-[320px]">
                       <Image src={formData.image || "/images/deal2.avif"} alt={formData.name || "Product"} fill className="object-cover" />
+                      {isEditMode && (
+                        <button
+                          type="button"
+                          onClick={triggerImageUpload}
+                          className="absolute bottom-3 right-3 rounded-[8px] bg-[#efb02e] px-4 py-2 text-[12px] font-semibold text-[#19462a] shadow-md hover:bg-[#e8ad2f] transition"
+                        >
+                          Change Image
+                        </button>
+                      )}
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                          className="hidden"
+                        />
                     </div>
                   </div>
                 </div>
