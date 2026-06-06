@@ -36,6 +36,8 @@ const OFFER_CATEGORIES = [
   "Free Gift Offer",
 ];
 
+const OFFERS_PER_PAGE = 10;
+
 function buildSelectedDates(startDate, endDate) {
   if (!startDate) return [];
 
@@ -131,6 +133,7 @@ export default function MerchantOffersPage() {
   const { user, loading } = useAuth();
   const [offers, setOffers] = useState([]);
   const [query, setQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
   const [pageLoading, setPageLoading] = useState(true);
   const [error, setError] = useState("");
   const [formOpen, setFormOpen] = useState(false);
@@ -186,6 +189,20 @@ export default function MerchantOffersPage() {
       String(offer?.title || "").toLowerCase().includes(needle),
     );
   }, [offers, query]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredOffers.length / OFFERS_PER_PAGE));
+  const paginatedOffers = useMemo(() => {
+    const startIndex = (currentPage - 1) * OFFERS_PER_PAGE;
+    return filteredOffers.slice(startIndex, startIndex + OFFERS_PER_PAGE);
+  }, [filteredOffers, currentPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [query]);
+
+  useEffect(() => {
+    setCurrentPage((prev) => Math.min(prev, totalPages));
+  }, [totalPages]);
 
   const activeCount = filteredOffers.filter((offer) => getOfferDisplayStatus(offer) === "active").length;
   const totalRevenue = filteredOffers.reduce((sum, offer) => sum + Number(offer.totalPrice || 0), 0);
@@ -599,7 +616,7 @@ export default function MerchantOffersPage() {
                     <tr>
                       <td className="px-4 py-8 text-center text-[#666]" colSpan={5}>No offers found</td>
                     </tr>
-                  ) : filteredOffers.map((row, index) => (
+                  ) : paginatedOffers.map((row, index) => (
                     <tr key={getOfferRowKey(row, index)} className="border-t border-[#f0f0f0]">
                       <td className="px-4 py-3 font-semibold text-[#2a2a2a]">{row.title}</td>
                       <td className="px-4 py-3 text-[#2c2c2c]">{formatDateForDisplay(row.createdAt)}</td>
@@ -625,7 +642,27 @@ export default function MerchantOffersPage() {
                 </tbody>
               </table>
 
-              <div className="bg-[#d6d9df] px-6 py-4 text-[12px] text-[#565656]">Showing {filteredOffers.length} offers</div>
+              <div className="flex items-center justify-between border-t border-[#ececec] bg-[#f2f3f5] px-4 py-3 text-[11px] text-[#666]">
+                <p>
+                  Showing {paginatedOffers.length} of {filteredOffers.length} offers
+                </p>
+                <div className="flex items-center gap-1">
+                  <button
+                    disabled={currentPage <= 1}
+                    onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                    className="h-7 rounded-[6px] border border-[#e1e1e1] bg-white px-3 text-[#666] disabled:text-[#b3b3b3]"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    disabled={currentPage >= totalPages}
+                    onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                    className="h-7 rounded-[6px] border border-[#7fc69a] bg-[#eefaf2] px-3 text-[#2f9e58] disabled:opacity-60"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
             </div>
           </section>
         </div>

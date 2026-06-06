@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
 import Navbar from '../../../components/Navbar';
 import Footer from '../../../components/Footer';
@@ -30,6 +30,8 @@ const statusClasses = (status) => {
 };
 
 export default function TransactionDetailPage({ params }) {
+  const resolvedParams = use(params);
+  const transactionId = resolvedParams?.id;
   const [transaction, setTransaction] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -37,7 +39,7 @@ export default function TransactionDetailPage({ params }) {
   useEffect(() => {
     const fetchPayment = async () => {
       try {
-        const response = await getPaymentById(params?.id);
+        const response = await getPaymentById(transactionId);
         setTransaction(response?.data || null);
       } catch (err) {
         setError(err?.data?.message || err.message || 'Failed to load transaction details');
@@ -47,7 +49,7 @@ export default function TransactionDetailPage({ params }) {
     };
 
     fetchPayment();
-  }, [params?.id]);
+  }, [transactionId]);
 
   if (loading) {
     return (

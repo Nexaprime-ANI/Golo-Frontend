@@ -174,9 +174,9 @@ function NavbarContent({
   const isGolocalSurface =
     pathname === "/" ||
     pathname.startsWith("/nearby-deals") ||
-    pathname.startsWith("/profile") ||
+    (pathname.startsWith("/profile") && !pathname.startsWith("/profile/transactions")) ||
     pathname.startsWith("/my-deals");
-  const isChojaSurface = pathname.startsWith("/choja");
+  const isChojaSurface = pathname.startsWith("/choja") || pathname.startsWith("/profile/transactions");
   const useGolocalHomeNav = isGolocalSurface;
   const homeNavHref = "/choja";
   const primaryNavLabel = useGolocalHomeNav ? "My Deals" : "Post Your Ad";
@@ -678,6 +678,13 @@ function NavbarContent({
                     className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
                   >
                     <ShieldCheck size={16} className="text-red-500" /> Wishlist
+                  </Link>
+                  <Link
+                    href="/profile/transactions"
+                    onClick={() => setShowProfileMenu(false)}
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition md:hidden"
+                  >
+                    <FileText size={16} /> Transactions
                   </Link>
 
                   {user?.role === "admin" && (

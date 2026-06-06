@@ -3,7 +3,6 @@ import Navbar from "../components/Navbar";
 import CategoryBar from "../components/CategoryBar";
 import Categories from "../components/Categories";
 import RecentListings from "../components/RecentListings";
-import RecommendedDeals from "../components/Recommended";
 import Footer from "../components/Footer";
 
 export default function ChojaPage() {
@@ -18,7 +17,6 @@ export default function ChojaPage() {
         <Suspense fallback={<div className="h-96 bg-gray-50 animate-pulse mx-8 rounded-3xl mt-10" />}>
           <RecentListings />
         </Suspense>
-        <RecommendedDeals />
       </div>
 
       <Footer />

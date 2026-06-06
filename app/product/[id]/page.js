@@ -5,7 +5,6 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import Navbar from "./../../components/Navbar";
 import Footer from "./../../components/Footer";
-import Recommended from "@/app/components/Recommended";
 import { getAdById, toggleWishlist, getWishlistIds, getAdWishlistCount } from "../../lib/api";
 import { useAuth } from "../../context/AuthContext";
 import {
@@ -652,7 +651,6 @@ export default function ProductDetails({ params }) {
 				</div>
 			</div>
 
-			<Recommended />
 			<Footer />
 
 			<ReportModal

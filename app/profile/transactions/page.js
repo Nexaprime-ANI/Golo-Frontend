@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -91,18 +91,23 @@ export default function TransactionHistory() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-white">
       <Navbar />
-      <div className="flex max-w-6xl mx-auto pt-8 pb-16 px-4 lg:px-0">
-        <ProfileSidebar />
-        <div className="flex-1 bg-white rounded-xl shadow-lg p-8 ml-8">
-          <div className="flex items-center justify-between mb-6 gap-3">
-            <h2 className="text-2xl font-semibold text-[#157A4F]">Transaction History</h2>
+      <div className="flex w-full max-w-6xl mx-auto pt-5 pb-10 px-3 lg:flex-row lg:pt-8 lg:pb-16 lg:px-0">
+        <div className="hidden lg:block">
+          <ProfileSidebar />
+        </div>
+        <div className="min-w-0 flex-1 bg-white rounded-xl shadow-lg p-3 lg:p-8 lg:ml-8">
+          <div className="flex flex-col items-stretch justify-between mb-6 gap-3 sm:flex-row sm:items-center">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#e0a12d] lg:hidden">Choja Payments</p>
+              <h2 className="text-xl font-semibold text-[#157A4F] sm:text-2xl">Transaction History</h2>
+            </div>
             <button
               type="button"
               onClick={handleQuickPay}
               disabled={paying || loading || !isAuthenticated}
-              className="px-4 py-2 rounded-lg bg-[#157A4F] text-white font-semibold hover:bg-[#0f5c3a] transition disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full px-4 py-2 rounded-lg bg-[#157A4F] text-white font-semibold hover:bg-[#0f5c3a] transition disabled:opacity-60 disabled:cursor-not-allowed sm:w-auto"
             >
-              {paying ? 'Processing...' : 'Pay ₹10 (Test)'}
+              {paying ? 'Processing...' : 'Pay Rs. 10 (Test)'}
             </button>
           </div>
 
@@ -118,7 +123,45 @@ export default function TransactionHistory() {
             </div>
           )}
 
-          <div className="overflow-x-auto">
+          <div className="w-full min-w-0 overflow-hidden rounded-2xl border border-gray-100 bg-white lg:hidden">
+            {loading ? (
+              <div className="p-5 text-center text-sm text-gray-500">
+                Loading transactions...
+              </div>
+            ) : payments.length === 0 ? (
+              <div className="p-6 text-center text-sm text-gray-500">
+                No transactions found yet.
+              </div>
+            ) : (
+              payments.map((tx) => (
+                <Link
+                  key={tx.paymentId}
+                  href={`/profile/transactions/${tx.paymentId}`}
+                  className="flex w-full min-w-0 items-center gap-3 border-b border-gray-100 px-3 py-3 last:border-b-0 active:bg-[#fffaf0]"
+                >
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#fff4d9] text-[11px] font-extrabold text-[#d99313]">
+                    TX
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex min-w-0 items-center justify-between gap-2">
+                      <p className="truncate text-[13px] font-extrabold text-[#157A4F]">{tx.paymentId}</p>
+                      <p className="shrink-0 text-[13px] font-extrabold text-green-700">Rs. {Number(tx.amount || 0).toFixed(2)}</p>
+                    </div>
+                    <div className="mt-1 flex min-w-0 items-center justify-between gap-2">
+                      <p className="min-w-0 truncate text-[11px] text-gray-500">
+                        {tx.method || 'Payment'} • {tx.createdAt ? new Date(tx.createdAt).toLocaleDateString() : '-'}
+                      </p>
+                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold ${statusClasses(tx.status)}`}>
+                        {toDisplayStatus(tx.status)}
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              ))
+            )}
+          </div>
+
+          <div className="hidden overflow-x-auto lg:block">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-green-50">
@@ -148,7 +191,7 @@ export default function TransactionHistory() {
                     </td>
                     <td className="py-2 px-4">{tx.razorpayOrderId || '-'}</td>
                     <td className="py-2 px-4">{tx.method || '-'}</td>
-                    <td className="py-2 px-4 font-bold text-green-700">₹{Number(tx.amount || 0).toFixed(2)}</td>
+                    <td className="py-2 px-4 font-bold text-green-700">Rs. {Number(tx.amount || 0).toFixed(2)}</td>
                     <td className="py-2 px-4">
                       <span
                         className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${statusClasses(tx.status)}`}

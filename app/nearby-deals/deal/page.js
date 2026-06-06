@@ -1213,16 +1213,20 @@ function NearbyDealDetailsContent() {
           <div className="space-y-3">
             {[
               {
-                q: "Can I buy this as a gift?",
-                a: "Yes! Once you claim the offer, you can share the redemption code with a friend.",
+                q: "How do I claim this deal?",
+                a: "Tap the claim button to generate your voucher, then show the QR code or verification code at the store during billing.",
               },
               {
-                q: "What should I bring to the spa?",
-                a: "Asure provides robes, slippers, and toiletries. Just bring yourself and a copy of the QR code.",
+                q: "Do I need to visit the store to use it?",
+                a: "Yes, GOLO deals are redeemed at the merchant's store. Please visit the store before the deal expires and show your voucher there.",
               },
               {
-                q: "Is gratuity included?",
-                a: "Gratuity is not included in the deal price and is at the discretion of the customer.",
+                q: "When do I earn loyalty points?",
+                a: "Loyalty points are added after your voucher is successfully redeemed by the merchant. You can track them from your profile rewards section.",
+              },
+              {
+                q: "Can I use the same deal more than once?",
+                a: "Each claimed voucher is valid for one redemption only. If the merchant has more active offers, you can claim another eligible deal separately.",
               },
             ].map((faq, idx) => (
               <div
