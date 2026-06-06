@@ -100,6 +100,17 @@ function getOfferDisplayStatus(offer) {
 
   return endDate.getTime() < Date.now() ? "expired" : "active";
 }
+
+function getOfferActionId(offer) {
+  return offer?.requestId || offer?.offerId || offer?._id || offer?.id || "";
+}
+
+function getOfferRowKey(offer, index) {
+  return String(
+    getOfferActionId(offer) ||
+      `${offer?.title || "offer"}-${offer?.createdAt || offer?.startDate || index}-${index}`,
+  );
+}
 // Customer contact removed from offers list (moved to orders view)
 
 function normalizeSelectedProducts(selectedProducts = []) {
@@ -193,7 +204,7 @@ export default function MerchantOffersPage() {
   };
 
   const openEditForm = (offer) => {
-    setEditingOfferId(offer.requestId);
+    setEditingOfferId(getOfferActionId(offer));
     setViewMode(false);
     setFormData({
       title: offer.title || "",
@@ -208,7 +219,7 @@ export default function MerchantOffersPage() {
   };
 
   const openViewForm = (offer) => {
-    setEditingOfferId(offer.requestId);
+    setEditingOfferId(getOfferActionId(offer));
     setViewMode(true);
     setFormData({
       title: offer.title || "",
@@ -339,7 +350,7 @@ export default function MerchantOffersPage() {
   const onDeleteOffer = async (offer) => {
     if (!window.confirm(`Delete offer \"${offer.title}\"?`)) return;
     try {
-      await deleteMyOfferPromotion(offer.requestId);
+      await deleteMyOfferPromotion(getOfferActionId(offer));
       await loadOffers();
     } catch (err) {
       setError(err?.message || "Failed to delete offer");
@@ -588,8 +599,8 @@ export default function MerchantOffersPage() {
                     <tr>
                       <td className="px-4 py-8 text-center text-[#666]" colSpan={5}>No offers found</td>
                     </tr>
-                  ) : filteredOffers.map((row) => (
-                    <tr key={row.requestId} className="border-t border-[#f0f0f0]">
+                  ) : filteredOffers.map((row, index) => (
+                    <tr key={getOfferRowKey(row, index)} className="border-t border-[#f0f0f0]">
                       <td className="px-4 py-3 font-semibold text-[#2a2a2a]">{row.title}</td>
                       <td className="px-4 py-3 text-[#2c2c2c]">{formatDateForDisplay(row.createdAt)}</td>
                       <td className="px-4 py-3">

@@ -1514,7 +1514,7 @@ export async function updateMerchantOrderStatus(orderId, status) {
  * @param {object} params - {status, search, page, limit}
  */
 export async function getMerchantReviews({ status, search, page = 1, limit = 30 } = {}) {
-    let url = `/merchant/reviews?page=${page}&limit=${limit}`;
+    let url = `/reviews/merchant?page=${page}&limit=${limit}`;
     if (status) url += `&status=${status}`;
     if (search) url += `&search=${encodeURIComponent(search)}`;
     return apiClient(url);
@@ -1524,7 +1524,7 @@ export async function getMerchantReviews({ status, search, page = 1, limit = 30 
  * Get merchant review statistics
  */
 export async function getMerchantReviewStats() {
-    return apiClient('/merchant/reviews/stats');
+    return apiClient('/reviews/merchant/stats');
 }
 
 /**
@@ -1534,8 +1534,8 @@ export async function getMerchantReviewStats() {
  * @param {string} response - Merchant response
  */
 export async function updateMerchantReviewStatus(reviewId, status, response = '') {
-    return apiClient(`/merchant/reviews/${reviewId}/status`, {
-        method: 'PUT',
+    return apiClient(`/reviews/${reviewId}/status`, {
+        method: 'PATCH',
         body: JSON.stringify({ status, response }),
     });
 }

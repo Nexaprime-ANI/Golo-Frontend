@@ -8,6 +8,15 @@ import { useAuth } from "../../context/AuthContext";
 import MerchantNavbar from "../MerchantNavbar";
 import { getMerchantOrders, getMerchantOrderStats, updateMerchantOrderStatus } from "../../lib/api";
 
+const FALLBACK_AVATAR = "/images/place2.avif";
+
+function getSafeAvatarSrc(src) {
+  const value = String(src || "").trim();
+  if (!value) return FALLBACK_AVATAR;
+  if (value.startsWith("file:") || value.startsWith("blob:")) return FALLBACK_AVATAR;
+  return value;
+}
+
 export default function MerchantOrdersPage() {
   const router = useRouter();
   const { user, loading, logout } = useAuth();
@@ -74,7 +83,7 @@ export default function MerchantOrdersPage() {
       customer: order.customerName || "Customer",
         customerPhone: order.customerPhone || null,
       customerType: "Customer",
-      avatar: order.customerAvatar || "/images/place2.avif",
+      avatar: getSafeAvatarSrc(order.customerAvatar),
       fulfillmentStatus: isPending ? "pending" : raw,
       action,
       actionTone,

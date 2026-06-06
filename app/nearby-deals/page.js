@@ -115,6 +115,90 @@ function formatDistance(distanceKm) {
   return `${distanceKm.toFixed(1)} km`;
 }
 
+function calculateDistanceKm(latitudeA, longitudeA, latitudeB, longitudeB) {
+  const earthRadiusKm = 6371;
+  const toRadians = (value) => (value * Math.PI) / 180;
+  const deltaLat = toRadians(latitudeB - latitudeA);
+  const deltaLng = toRadians(longitudeB - longitudeA);
+  const a =
+    Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+    Math.cos(toRadians(latitudeA)) *
+      Math.cos(toRadians(latitudeB)) *
+      Math.sin(deltaLng / 2) *
+      Math.sin(deltaLng / 2);
+  return earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function withResolvedDistance(row, latitude, longitude) {
+  const existingDistance = Number(row?.distanceKm);
+  if (Number.isFinite(existingDistance)) {
+    return { ...row, distanceKm: existingDistance };
+  }
+
+  const merchantLatitude = Number(row?.merchant?.latitude);
+  const merchantLongitude = Number(row?.merchant?.longitude);
+  if (!Number.isFinite(merchantLatitude) || !Number.isFinite(merchantLongitude)) {
+    return { ...row, distanceKm: null };
+  }
+
+  return {
+    ...row,
+    distanceKm: calculateDistanceKm(latitude, longitude, merchantLatitude, merchantLongitude),
+  };
+}
+
+function isWithinRadius(row, radiusKm) {
+  const distanceKm = Number(row?.distanceKm);
+  return Number.isFinite(distanceKm) && distanceKm <= radiusKm;
+}
+
+function normalizeLocationText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getLocationCity(location) {
+  return normalizeLocationText(String(location || "").split(",")[0] || location);
+}
+
+function offerMatchesLocation(row, location) {
+  const cityNorm = getLocationCity(location);
+  if (!cityNorm) return false;
+
+  const locationAliases = {
+    kolhapur: ["kolhapur", "karvir", "karveer", "karveer taluka", "karvir taluka"],
+    sangli: ["sangli"],
+    mumbai: ["mumbai", "bombay", "navi mumbai"],
+    pune: ["pune", "poona"],
+  };
+
+  const addressNorm = normalizeLocationText(
+    [
+      row?.merchant?.address,
+      row?.merchant?.name,
+      row?.merchant?.category,
+      row?.merchant?.subCategory,
+    ].filter(Boolean).join(" "),
+  );
+  if (!addressNorm) return false;
+
+  if (addressNorm.includes(cityNorm)) return true;
+
+  const aliases = locationAliases[cityNorm] || [];
+  return aliases.some((alias) => {
+    const aliasNorm = normalizeLocationText(alias);
+    return aliasNorm && addressNorm.includes(aliasNorm);
+  });
+}
+
+function isManualLocationMatch(row, location) {
+  const manualCityRadiusKm = 25;
+  return offerMatchesLocation(row, location) || isWithinRadius(row, manualCityRadiusKm);
+}
+
 function formatDate(dateValue) {
   if (!dateValue) return "-";
   const date = new Date(dateValue);
@@ -370,7 +454,7 @@ function NearbyDealsPageContent() {
       const fetchLat = hasLocationQuery ? (hasManualCoordinates ? manualLatitude : undefined) : (hasManualCoordinates ? manualLatitude : resolvedLat);
       const fetchLng = hasLocationQuery ? (hasManualCoordinates ? manualLongitude : undefined) : (hasManualCoordinates ? manualLongitude : resolvedLng);
       const hasCoordinateSearch = typeof fetchLat === "number" && typeof fetchLng === "number";
-      const locationForRequest = hasCoordinateSearch ? "" : location;
+      const locationForRequest = hasLocationQuery ? location : "";
 
       try {
         const response = await getNearbyOffers({
@@ -393,12 +477,22 @@ function NearbyDealsPageContent() {
         const primaryRows = Array.isArray(response?.data)
           ? response.data.map(normalizeNearbyOffer)
           : [];
+        const distanceResolvedRows = hasCoordinateSearch
+          ? primaryRows.map((row) => withResolvedDistance(row, fetchLat, fetchLng))
+          : primaryRows;
+        const strictRows = hasCoordinateSearch
+          ? distanceResolvedRows.filter((row) => (
+              hasManualCoordinates && hasLocationQuery
+                ? isManualLocationMatch(row, location)
+                : isWithinRadius(row, distanceRadius)
+            ))
+          : distanceResolvedRows;
 
         // If the user explicitly provided a location string and the backend
         // returned no results for that location, do NOT fall back to other
         // nearby offers — show an empty state instead. This prevents showing
         // unrelated deals (e.g., Kolhapur) for a typed location like "Mumbai".
-        if (hasLocationQuery && !hasCoordinateSearch && primaryRows.length === 0) {
+        if (hasLocationQuery && !hasCoordinateSearch && strictRows.length === 0) {
           if (fetchSeq !== nearbyFetchSeqRef.current) return;
           setRawOffers([]);
           setLoading(false);
@@ -407,7 +501,13 @@ function NearbyDealsPageContent() {
 
         // Graceful fallback: if strict geofence returns empty, show relevant offers
         // instead of a blank state (helps when merchant coords are incomplete/inaccurate).
-        if (primaryRows.length === 0 && fetchLat !== undefined && fetchLng !== undefined) {
+        if (
+          strictRows.length === 0 &&
+          fetchLat !== undefined &&
+          fetchLng !== undefined &&
+          !hasManualCoordinates &&
+          !hasLocationQuery
+        ) {
           const fallbackResponse = await getNearbyOffers({
             lat: undefined,
             lng: undefined,
@@ -432,7 +532,7 @@ function NearbyDealsPageContent() {
           setRawOffers(fallbackRows);
         } else {
           if (fetchSeq !== nearbyFetchSeqRef.current) return;
-          setRawOffers(primaryRows);
+          setRawOffers(strictRows);
         }
       } catch (err) {
         if (fetchSeq !== nearbyFetchSeqRef.current) return;
@@ -502,52 +602,20 @@ function NearbyDealsPageContent() {
       });
     }
 
-    const hasCoordinateSearch = manualLatitude !== null && manualLongitude !== null;
-
-    if (!location || hasCoordinateSearch) {
+    if (!location) {
       return sortedRows;
+    }
+
+    if (manualLatitude !== null && manualLongitude !== null) {
+      return sortedRows.filter((row) => isManualLocationMatch(row, location));
     }
 
     // When user provided a location string, only include offers whose merchant
     // store location/address contains that location. Use a normalized, punctuation-
     // insensitive match so queries like "Kolhapur, Maharashtra, India" match
     // stored addresses such as "Kolhapur District, Maharashtra, India".
-    const normalize = (v) =>
-      String(v || '')
-        .toLowerCase()
-        .replace(/[^ -\u007F\p{L}\p{N}]+/gu, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-
-    const locationNorm = normalize(location);
-    if (!locationNorm) return [];
-
-    // Prefer the city segment (first comma-separated part). This avoids
-    // matches based only on state/country tokens like "Maharashtra" or "India".
-    const citySegment = String(location).split(',')[0] || location;
-    const cityNorm = normalize(citySegment);
-    const LOCATION_ALIASES = {
-      kolhapur: ['kolhapur', 'karvir', 'karveer', 'karveer taluka', 'karvir taluka'],
-    };
-
-    return sortedRows.filter((row) => {
-      const addressNorm = normalize(row?.merchant?.address || row?.merchant?.name || '');
-      if (!addressNorm) return false;
-
-      // Direct city match (preferred)
-      if (cityNorm && addressNorm.includes(cityNorm)) return true;
-
-      // Alias match for city
-      const aliases = LOCATION_ALIASES[cityNorm];
-      if (aliases && aliases.length) {
-        for (const alias of aliases) {
-          if (normalize(alias) && addressNorm.includes(normalize(alias))) return true;
-        }
-      }
-
-      return false;
-    });
-  }, [rawOffers, activeNowOnly, topDiscountOnly, selectedTypeLabels, location, sortBy]);
+    return sortedRows.filter((row) => offerMatchesLocation(row, location));
+  }, [rawOffers, activeNowOnly, topDiscountOnly, selectedTypeLabels, location, sortBy, manualLatitude, manualLongitude]);
 
   const summary = useMemo(() => {
     const total = filteredDeals.length;
