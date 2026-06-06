@@ -160,20 +160,30 @@ function normalizeLocationText(value) {
     .trim();
 }
 
+const LOCATION_ALIASES = {
+  kolhapur: ["kolhapur", "karvir", "karveer", "karveer taluka", "karvir taluka"],
+  sangli: ["sangli"],
+  mumbai: ["mumbai", "bombay", "navi mumbai"],
+  pune: ["pune", "poona"],
+};
+
 function getLocationCity(location) {
+  const fullLocation = normalizeLocationText(location);
+  if (!fullLocation) return "";
+
+  for (const [city, aliases] of Object.entries(LOCATION_ALIASES)) {
+    const candidates = [city, ...aliases].map(normalizeLocationText).filter(Boolean);
+    if (candidates.some((candidate) => fullLocation.includes(candidate))) {
+      return city;
+    }
+  }
+
   return normalizeLocationText(String(location || "").split(",")[0] || location);
 }
 
 function offerMatchesLocation(row, location) {
   const cityNorm = getLocationCity(location);
   if (!cityNorm) return false;
-
-  const locationAliases = {
-    kolhapur: ["kolhapur", "karvir", "karveer", "karveer taluka", "karvir taluka"],
-    sangli: ["sangli"],
-    mumbai: ["mumbai", "bombay", "navi mumbai"],
-    pune: ["pune", "poona"],
-  };
 
   const addressNorm = normalizeLocationText(
     [
@@ -187,7 +197,7 @@ function offerMatchesLocation(row, location) {
 
   if (addressNorm.includes(cityNorm)) return true;
 
-  const aliases = locationAliases[cityNorm] || [];
+  const aliases = LOCATION_ALIASES[cityNorm] || [];
   return aliases.some((alias) => {
     const aliasNorm = normalizeLocationText(alias);
     return aliasNorm && addressNorm.includes(aliasNorm);
