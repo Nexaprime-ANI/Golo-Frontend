@@ -149,6 +149,10 @@ export default function MerchantOffersPage() {
     imageUrl: "",
     startDate: "",
     endDate: "",
+    promotionExpiryText: "",
+    loyaltyRewardEnabled: false,
+    loyaltyPointsPerPurchase: "1",
+    termsAndConditions: "",
   });
   const [selectedProducts, setSelectedProducts] = useState([]);
 
@@ -214,6 +218,10 @@ export default function MerchantOffersPage() {
       imageUrl: "",
       startDate: "",
       endDate: "",
+      promotionExpiryText: "",
+      loyaltyRewardEnabled: false,
+      loyaltyPointsPerPurchase: "1",
+      termsAndConditions: "",
     });
     setSelectedProducts([]);
     setEditingOfferId(null);
@@ -229,6 +237,10 @@ export default function MerchantOffersPage() {
       imageUrl: offer.imageUrl || "",
       startDate: toDateInputValue(offer.startDate),
       endDate: toDateInputValue(offer.endDate),
+      promotionExpiryText: offer.promotionExpiryText || "",
+      loyaltyRewardEnabled: Boolean(offer.loyaltyRewardEnabled),
+      loyaltyPointsPerPurchase: String(offer.loyaltyPointsPerPurchase || 1),
+      termsAndConditions: offer.termsAndConditions || "",
     });
     setSelectedProducts(normalizeSelectedProducts(offer.selectedProducts));
     setFormError("");
@@ -244,6 +256,10 @@ export default function MerchantOffersPage() {
       imageUrl: offer.imageUrl || "",
       startDate: toDateInputValue(offer.startDate),
       endDate: toDateInputValue(offer.endDate),
+      promotionExpiryText: offer.promotionExpiryText || "",
+      loyaltyRewardEnabled: Boolean(offer.loyaltyRewardEnabled),
+      loyaltyPointsPerPurchase: String(offer.loyaltyPointsPerPurchase || 1),
+      termsAndConditions: offer.termsAndConditions || "",
     });
     setSelectedProducts(normalizeSelectedProducts(offer.selectedProducts));
     setFormError("");
@@ -319,6 +335,10 @@ export default function MerchantOffersPage() {
         const updatedCategory = formData.category;
         const updatedImageUrl = formData.imageUrl.trim();
         const updatedEndDate = formData.endDate || formData.startDate;
+        const updatedPromotionExpiryText = formData.promotionExpiryText.trim();
+        const updatedTermsAndConditions = formData.termsAndConditions.trim();
+        const updatedLoyaltyRewardEnabled = Boolean(formData.loyaltyRewardEnabled);
+        const updatedLoyaltyPointsPerPurchase = Math.max(1, Math.min(50, Number(formData.loyaltyPointsPerPurchase || 1)));
         const updatedSelectedProducts = selectedProducts.map((item) => ({
           productId: item.productId,
           productName: item.productName,
@@ -333,18 +353,26 @@ export default function MerchantOffersPage() {
           category: updatedCategory,
           imageUrl: updatedImageUrl,
           selectedDates,
+          promotionExpiryText: updatedPromotionExpiryText,
+          loyaltyRewardEnabled: updatedLoyaltyRewardEnabled,
+          loyaltyPointsPerPurchase: updatedLoyaltyPointsPerPurchase,
+          termsAndConditions: updatedTermsAndConditions,
           selectedProducts: updatedSelectedProducts,
         });
 
         setOffers((currentOffers) =>
           currentOffers.map((offer) =>
-            offer.requestId === editingOfferId
+            getOfferActionId(offer) === editingOfferId
               ? {
                   ...offer,
                   title: updatedTitle,
                   category: updatedCategory,
                   imageUrl: updatedImageUrl,
                   selectedDates,
+                  promotionExpiryText: updatedPromotionExpiryText,
+                  loyaltyRewardEnabled: updatedLoyaltyRewardEnabled,
+                  loyaltyPointsPerPurchase: updatedLoyaltyPointsPerPurchase,
+                  termsAndConditions: updatedTermsAndConditions,
                   selectedProducts: updatedSelectedProducts,
                   totalPrice: Math.round(totalOfferValue),
                   startDate: formData.startDate,
@@ -452,19 +480,54 @@ export default function MerchantOffersPage() {
             {error ? <p className="mt-3 text-[12px] text-[#ef4d4d]">{error}</p> : null}
 
             {formOpen ? (
-              <div className="mt-4 rounded-[10px] border border-[#e3e3e3] bg-white p-4">
-                <div className="mb-3 flex items-center justify-between gap-2">
-                  <h2 className="text-[16px] font-semibold text-[#2a2a2a]">{viewMode ? "View Offer" : "Edit Offer"}</h2>
-                  <button
-                    type="button"
-                    onClick={closeForm}
-                    className="h-8 rounded-[7px] border border-[#e0e0e0] bg-white px-3 text-[11px] font-semibold text-[#5e5e5e]"
-                  >
-                    Cancel
-                  </button>
-                </div>
+              <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/45 px-4 pb-6 pt-20 lg:pt-24">
+                <div className="max-h-[78vh] w-full max-w-[820px] overflow-y-auto rounded-[16px] border border-[#e6e6e6] bg-white shadow-[0_24px_80px_rgba(0,0,0,0.24)]">
+                  <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-[#eeeeee] bg-white px-5 py-3">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#2f9e58]">Offer Details</p>
+                      <h2 className="mt-1 text-[18px] font-semibold leading-tight text-[#222]">{formData.title || "Offer information"}</h2>
+                      <p className="mt-1 text-[12px] text-[#777]">
+                        {viewMode ? "Review all merchant-filled offer details." : "Edit the offer details and save changes."}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      {viewMode ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setViewMode(false);
+                            setFormError("");
+                          }}
+                          className="h-8 rounded-[8px] bg-[#2f9e58] px-4 text-[11px] font-semibold text-white"
+                        >
+                          Edit
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={closeForm}
+                        className="h-8 rounded-[8px] border border-[#e0e0e0] bg-white px-3 text-[11px] font-semibold text-[#5e5e5e]"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
 
-                <form onSubmit={onSubmitForm} className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <form onSubmit={onSubmitForm} className="grid grid-cols-1 gap-3 p-4 md:grid-cols-2">
+                    <div className="md:col-span-2 grid grid-cols-1 gap-2 rounded-[12px] border border-[#f0f0f0] bg-[#fafafa] p-3 sm:grid-cols-3">
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-[#888]">Status</p>
+                        <p className="mt-1 text-[13px] font-semibold capitalize text-[#222]">{getOfferDisplayStatus({ endDate: formData.endDate, status: "active" })}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-[#888]">Offer Value</p>
+                        <p className="mt-1 text-[13px] font-semibold text-[#222]">Rs. {Math.round(totalOfferValue).toLocaleString()}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-[#888]">Products</p>
+                        <p className="mt-1 text-[13px] font-semibold text-[#222]">{selectedProducts.length}</p>
+                      </div>
+                    </div>
                   <div>
                     <label className="mb-1 block text-[11px] font-semibold text-[#555]">Offer Title</label>
                     <input
@@ -496,14 +559,14 @@ export default function MerchantOffersPage() {
                       <div className="w-full md:w-48">
                         {formData.imageUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={formData.imageUrl} alt="Offer" className="w-full h-32 object-cover rounded border border-[#dedede]" />
+                          <img src={formData.imageUrl} alt="Offer" className="w-full h-24 object-cover rounded border border-[#dedede]" />
                         ) : (
-                          <div className="w-full h-32 bg-[#f2f2f2] rounded border border-[#dedede] flex items-center justify-center text-[12px] text-[#888]">No image</div>
+                          <div className="w-full h-24 bg-[#f2f2f2] rounded border border-[#dedede] flex items-center justify-center text-[12px] text-[#888]">No image</div>
                         )}
                       </div>
 
                       <div className="flex-1 flex flex-col justify-center space-y-2">
-                        <label className="flex items-center justify-center h-20 border-2 border-dashed border-[#157a4f] rounded-[8px] cursor-pointer hover:bg-[#f5fff9] transition">
+                        <label className="flex items-center justify-center h-16 border-2 border-dashed border-[#157a4f] rounded-[8px] cursor-pointer hover:bg-[#f5fff9] transition">
                           <input
                             type="file"
                             accept="image/*"
@@ -549,6 +612,56 @@ export default function MerchantOffersPage() {
                     />
                   </div>
 
+                  <div>
+                    <label className="mb-1 block text-[11px] font-semibold text-[#555]">Promotion Expiry Text</label>
+                    <input
+                      value={formData.promotionExpiryText}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, promotionExpiryText: e.target.value }))}
+                      disabled={viewMode}
+                      className="h-9 w-full rounded-[8px] border border-[#dedede] bg-white px-3 text-[12px] outline-none disabled:bg-[#f6f6f6]"
+                      placeholder="Offer ends in 7 days"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <label className="block text-[11px] font-semibold text-[#555]">Royalty Rewards</label>
+                      <button
+                        type="button"
+                        onClick={() => setFormData((prev) => ({ ...prev, loyaltyRewardEnabled: !prev.loyaltyRewardEnabled }))}
+                        disabled={viewMode}
+                        className={`h-6 w-12 rounded-full p-1 transition disabled:cursor-not-allowed ${formData.loyaltyRewardEnabled ? "bg-[#efb02e]" : "bg-[#d0d0d0]"}`}
+                      >
+                        <span className={`block h-4 w-4 rounded-full bg-white transition ${formData.loyaltyRewardEnabled ? "translate-x-6" : "translate-x-0"}`} />
+                      </button>
+                    </div>
+                    <input
+                      type="number"
+                      min="1"
+                      max="50"
+                      value={formData.loyaltyPointsPerPurchase}
+                      onChange={(e) => {
+                        const rawValue = e.target.value.replace(/[^0-9]/g, "");
+                        const nextValue = rawValue ? Math.max(1, Math.min(50, Number(rawValue))) : 1;
+                        setFormData((prev) => ({ ...prev, loyaltyPointsPerPurchase: String(nextValue) }));
+                      }}
+                      disabled={viewMode || !formData.loyaltyRewardEnabled}
+                      className="h-9 w-full rounded-[8px] border border-[#dedede] bg-white px-3 text-[12px] outline-none disabled:bg-[#f6f6f6]"
+                      placeholder="Points per redemption"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="mb-1 block text-[11px] font-semibold text-[#555]">Terms and Conditions</label>
+                    <textarea
+                      value={formData.termsAndConditions}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, termsAndConditions: e.target.value }))}
+                      disabled={viewMode}
+                      className="h-20 w-full resize-none rounded-[8px] border border-[#dedede] bg-white px-3 py-2 text-[12px] outline-none disabled:bg-[#f6f6f6]"
+                      placeholder="Enter offer terms and conditions"
+                    />
+                  </div>
+
                   <div className="md:col-span-2">
                     {viewMode ? (
                       <div className="space-y-2">
@@ -571,7 +684,16 @@ export default function MerchantOffersPage() {
                     )}
                   </div>
 
-                  <div className="flex items-end justify-end">
+                  <div className="md:col-span-2 flex items-center justify-end gap-2 border-t border-[#eeeeee] pt-4">
+                    {!viewMode ? (
+                      <button
+                        type="button"
+                        onClick={closeForm}
+                        className="h-9 rounded-[8px] border border-[#e0e0e0] bg-white px-4 text-[11px] font-semibold text-[#5e5e5e]"
+                      >
+                        Cancel
+                      </button>
+                    ) : null}
                     {!viewMode ? (
                       <button
                         type="submit"
@@ -582,9 +704,10 @@ export default function MerchantOffersPage() {
                       </button>
                     ) : null}
                   </div>
-                </form>
 
-                {formError ? <p className="mt-3 text-[12px] text-[#ef4d4d]">{formError}</p> : null}
+                    {formError ? <p className="md:col-span-2 text-[12px] text-[#ef4d4d]">{formError}</p> : null}
+                  </form>
+                </div>
               </div>
             ) : null}
 
@@ -629,11 +752,7 @@ export default function MerchantOffersPage() {
                       </td>
                       <td className="px-4 py-3 text-[#2c2c2c]">{formatDateForDisplay(row.endDate)}</td>
                       <td className="px-4 py-3 text-[11px]">
-                        {row.status === "active" ? (
-                          <button onClick={() => openEditForm(row)} className="text-[#f0aa19] font-semibold">Edit</button>
-                        ) : (
-                          <button onClick={() => openViewForm(row)} className="text-[#1f6fb3] font-semibold">View</button>
-                        )}
+                        <button onClick={() => openViewForm(row)} className="text-[#1f6fb3] font-semibold">View</button>
                         <span className="mx-2 text-[#cfcfcf]">/</span>
                         <button onClick={() => onDeleteOffer(row)} className="text-[#ef4d4d] font-semibold">Delete</button>
                       </td>
