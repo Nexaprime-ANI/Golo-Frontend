@@ -24,11 +24,11 @@ export function VoucherProvider({ children }) {
     const [error, setError] = useState(null);
 
     // CLAIM OFFER
-    const claimOfferHandler = useCallback(async (offerId) => {
+    const claimOfferHandler = useCallback(async (offerId, claimLocation = {}) => {
         setLoading(true);
         setError(null);
         try {
-            const response = await claimOffer(offerId);
+            const response = await claimOffer(offerId, claimLocation);
             const newVoucher = response.data; // Voucher is directly in data
             
             if (newVoucher && newVoucher._id) {

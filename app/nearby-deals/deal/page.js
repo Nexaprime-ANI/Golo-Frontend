@@ -33,6 +33,7 @@ import {
   getWishlistIds,
 } from "../../lib/api";
 import Navbar from "../../components/Navbar";
+import { reverseGeocode } from "../../services/leafletService";
 import Footer from "../../components/Footer";
 
 function getTimeRemaining(endDate) {
@@ -555,6 +556,40 @@ function NearbyDealDetailsContent() {
     return `Ends ${formatDate(offer?.endsAt)}`;
   }, [offer]);
 
+  const captureClaimLocation = async () => {
+    if (typeof window === "undefined" || !navigator?.geolocation) return {};
+
+    try {
+      const position = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 7000,
+          maximumAge: 60 * 1000,
+        });
+      });
+
+      const latitude = position.coords.latitude;
+      const longitude = position.coords.longitude;
+      let location = "";
+
+      try {
+        const locationDetails = await reverseGeocode(longitude, latitude);
+        location = String(
+          locationDetails?.address ||
+          locationDetails?.displayName ||
+          locationDetails?.name ||
+          "",
+        );
+      } catch {
+        location = "";
+      }
+
+      return { latitude, longitude, location };
+    } catch {
+      return {};
+    }
+  };
+
   const handleClaimOffer = async () => {
     if (!offerId) return;
     if (isClaimed) return;
@@ -570,7 +605,8 @@ function NearbyDealDetailsContent() {
 
     setClaimError("");
     try {
-      const response = await claimOfferHandler(offerId);
+      const claimLocation = await captureClaimLocation();
+      const response = await claimOfferHandler(offerId, claimLocation);
       const voucherId = response?.data?._id;
       if (!voucherId) {
         throw new Error("Voucher was created but voucher id is missing.");

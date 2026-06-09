@@ -1,7 +1,7 @@
 "use client";
 
 import AuthLayout from "./../../components/AuthLayout";
-import { Mail, Lock, User, Phone, MapPin, Eye, EyeOff, ChevronDown, Check } from "lucide-react";
+import { Mail, Lock, User, Phone, MapPin, Eye, EyeOff, ChevronDown, Check, CalendarDays } from "lucide-react";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -88,6 +88,13 @@ const MERCHANT_CATEGORIES = [
   },
 ];
 
+const GENDER_OPTIONS = [
+  { value: "male", label: "Male" },
+  { value: "female", label: "Female" },
+  { value: "others", label: "Others" },
+  { value: "prefer_not_to_say", label: "Prefer not to say" },
+];
+
 function toFiniteNumber(value) {
   if (value === null || value === undefined || value === "") return null;
   const nextValue = Number(value);
@@ -137,6 +144,8 @@ export default function RegisterPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [gender, setGender] = useState("");
   const [password, setPassword] = useState("");
 
   // Merchant form fields
@@ -154,8 +163,11 @@ export default function RegisterPage() {
   const [storePassword, setStorePassword] = useState("");
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
   const [isSubCategoryOpen, setIsSubCategoryOpen] = useState(false);
+  const [isGenderOpen, setIsGenderOpen] = useState(false);
   const categoryDropdownRef = useRef(null);
   const subCategoryDropdownRef = useRef(null);
+  const genderDropdownRef = useRef(null);
+  const dateOfBirthInputRef = useRef(null);
 
   const router = useRouter();
   const { register, isAuthenticated } = useAuth();
@@ -170,6 +182,9 @@ export default function RegisterPage() {
     if (!storeSubCategory) return "Select sub category";
     return storeSubCategory;
   }, [storeCategory, storeSubCategory]);
+  const genderLabel = useMemo(() => {
+    return GENDER_OPTIONS.find((item) => item.value === gender)?.label || "Select gender";
+  }, [gender]);
 
   useEffect(() => {
     const handlePointerDown = (event) => {
@@ -180,12 +195,16 @@ export default function RegisterPage() {
       if (subCategoryDropdownRef.current && !subCategoryDropdownRef.current.contains(target)) {
         setIsSubCategoryOpen(false);
       }
+      if (genderDropdownRef.current && !genderDropdownRef.current.contains(target)) {
+        setIsGenderOpen(false);
+      }
     };
 
     const handleKeyDown = (event) => {
       if (event.key === "Escape") {
         setIsCategoryOpen(false);
         setIsSubCategoryOpen(false);
+        setIsGenderOpen(false);
       }
     };
 
@@ -216,6 +235,7 @@ export default function RegisterPage() {
     setSuccess("");
     setIsCategoryOpen(false);
     setIsSubCategoryOpen(false);
+    setIsGenderOpen(false);
   };
 
   const handleAccountToggleClick = (event) => {
@@ -281,6 +301,8 @@ export default function RegisterPage() {
           email,
           password,
           phone: formatPhone(phone),
+          dateOfBirth,
+          gender,
           accountType: "user",
         }
         : {
@@ -502,6 +524,125 @@ export default function RegisterPage() {
                           value={phone}
                           onChange={(e) => setPhone(e.target.value)}
                         />
+                      </div>
+                    </div>
+
+                    <div className="input-group">
+                      <label>Date of Birth</label>
+                      <div
+                        className="input-wrapper"
+                        onClick={() => {
+                          dateOfBirthInputRef.current?.showPicker?.();
+                          dateOfBirthInputRef.current?.focus();
+                        }}
+                      >
+                        <CalendarDays className="input-icon" size={18} />
+                        <input
+                          ref={dateOfBirthInputRef}
+                          type="date"
+                          value={dateOfBirth}
+                          onChange={(e) => { setDateOfBirth(e.target.value); setError(""); }}
+                          max={new Date().toISOString().slice(0, 10)}
+                          style={{
+                            color: dateOfBirth ? "#111827" : "#9CA3AF",
+                            cursor: "pointer",
+                            colorScheme: "light",
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="input-group">
+                      <label>Gender</label>
+                      <div className="input-wrapper dropdown-shell" ref={genderDropdownRef}>
+                        <button
+                          type="button"
+                          className={`dropdown-trigger ${gender ? "has-value" : "is-placeholder"}`}
+                          onClick={() => {
+                            setIsGenderOpen((open) => !open);
+                            setIsCategoryOpen(false);
+                            setIsSubCategoryOpen(false);
+                          }}
+                          aria-expanded={isGenderOpen}
+                          aria-haspopup="listbox"
+                        >
+                          <User className="input-icon" size={18} />
+                          <span className="dropdown-trigger-text">{genderLabel}</span>
+                          <ChevronDown size={16} className={`dropdown-trigger-icon ${isGenderOpen ? "open" : ""}`} />
+                        </button>
+                        {isGenderOpen && (
+                          <div
+                            className="dropdown-panel"
+                            role="listbox"
+                            style={{
+                              left: 0,
+                              right: 0,
+                              width: "100%",
+                              padding: "8px",
+                              borderRadius: "16px",
+                              background: "#FFFFFF",
+                              border: "1px solid #E5E7EB",
+                              boxShadow: "0 18px 45px rgba(15, 23, 42, 0.16)",
+                              display: "grid",
+                              gap: "6px",
+                              maxHeight: "240px",
+                              overflowY: "auto",
+                              zIndex: 60,
+                            }}
+                          >
+                            {GENDER_OPTIONS.map((option) => {
+                              const active = gender === option.value;
+                              return (
+                                <button
+                                  key={option.value}
+                                  type="button"
+                                  className={`dropdown-option ${active ? "active" : ""}`}
+                                  style={{
+                                    width: "100%",
+                                    minHeight: "44px",
+                                    borderRadius: "12px",
+                                    padding: "0 12px",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                    gap: "12px",
+                                    fontSize: "14px",
+                                    fontWeight: active ? 700 : 600,
+                                    color: active ? "#157A4F" : "#374151",
+                                    background: active ? "#ECFDF3" : "transparent",
+                                    border: active ? "1px solid #BBF7D0" : "1px solid transparent",
+                                    textAlign: "left",
+                                    lineHeight: 1,
+                                  }}
+                                  onClick={() => {
+                                    setGender(option.value);
+                                    setError("");
+                                    setIsGenderOpen(false);
+                                  }}
+                                  role="option"
+                                  aria-selected={active}
+                                >
+                                  <span style={{ flex: 1 }}>{option.label}</span>
+                                  <span
+                                    style={{
+                                      width: "20px",
+                                      height: "20px",
+                                      borderRadius: "999px",
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      background: active ? "#157A4F" : "#F3F4F6",
+                                      color: active ? "#FFFFFF" : "transparent",
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    <Check size={12} />
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     </div>
 

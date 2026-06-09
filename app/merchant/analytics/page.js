@@ -14,14 +14,8 @@ import {
 export default function MerchantAnalyticsPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
-  const [deviceData, setDeviceData] = useState({ Mobile: 62.5, Desktop: 25, Tablet: 12.5 });
-  const [regions, setRegions] = useState([
-    { region: "Karveer", percent: 95 },
-    { region: "Gandhinglaj", percent: 62 },
-    { region: "Panhala", percent: 30 },
-    { region: "Ichalkaranji", percent: 78 },
-    { region: "Radhanagari", percent: 45 },
-  ]);
+  const [deviceData, setDeviceData] = useState({ Mobile: 0, Desktop: 0, Tablet: 0 });
+  const [regions, setRegions] = useState([]);
   const [topProducts, setTopProducts] = useState([]);
   const [eventStats, setEventStats] = useState({ totalActive: 0, newSignups: 0, retention: 0 });
   const [trendLabels, setTrendLabels] = useState(["1 Jan", "5 Jan", "10 Jan", "15 Jan", "20 Jan", "25 Jan", "31 Jan"]);
@@ -31,12 +25,28 @@ export default function MerchantAnalyticsPage() {
   const [likedProducts, setLikedProducts] = useState([]);
   const [merchantProfile, setMerchantProfile] = useState(null);
   const [ageRows, setAgeRows] = useState([
-    { label: "18-24", male: 40, female: 60, total: "3.3%" },
-    { label: "25-34", male: 54, female: 46, total: "12.7%" },
-    { label: "35-44", male: 48, female: 52, total: "15.2%" },
-    { label: "45-64", male: 59, female: 41, total: "25.3%" },
-    { label: "65+", male: 45, female: 55, total: "33.5%" },
+    { label: "18-24", male: 0, female: 0, total: "0%" },
+    { label: "25-34", male: 0, female: 0, total: "0%" },
+    { label: "35-44", male: 0, female: 0, total: "0%" },
+    { label: "45-64", male: 0, female: 0, total: "0%" },
+    { label: "65+", male: 0, female: 0, total: "0%" },
   ]);
+
+  const deviceSegments = useMemo(() => {
+    const circumference = 264;
+    const mobile = Math.max(0, Math.min(100, Number(deviceData.Mobile || 0)));
+    const desktop = Math.max(0, Math.min(100, Number(deviceData.Desktop || 0)));
+    const tablet = Math.max(0, Math.min(100, Number(deviceData.Tablet || 0)));
+    return {
+      circumference,
+      mobileDash: `${(mobile / 100) * circumference} ${circumference}`,
+      desktopDash: `${(desktop / 100) * circumference} ${circumference}`,
+      tabletDash: `${(tablet / 100) * circumference} ${circumference}`,
+      desktopOffset: -((mobile / 100) * circumference),
+      tabletOffset: -(((mobile + desktop) / 100) * circumference),
+      total: Math.round(mobile + desktop + tablet),
+    };
+  }, [deviceData]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -68,7 +78,7 @@ export default function MerchantAnalyticsPage() {
           });
         }
 
-        if (Array.isArray(payload.regions) && payload.regions.length) {
+        if (Array.isArray(payload.regions)) {
           setRegions(payload.regions.map((r) => ({ region: r.region, percent: Number(r.percent || 0) })));
         }
 
@@ -90,6 +100,15 @@ export default function MerchantAnalyticsPage() {
 
         if (payload.trend?.labels?.length) {
           setTrendLabels(payload.trend.labels);
+        }
+
+        if (Array.isArray(payload.demographics)) {
+          setAgeRows(payload.demographics.map((row) => ({
+            label: row.label,
+            male: Number(row.male || 0),
+            female: Number(row.female || 0),
+            total: row.total || "0%",
+          })));
         }
       } catch (err) {
         setLoadError("Failed to load realtime analytics data.");
@@ -135,7 +154,7 @@ export default function MerchantAnalyticsPage() {
               name: item.name || 'Untitled Offer',
               type: item.type || 'General',
               likes: Number(item.likes || 0),
-              image: item.image || '/images/deal2.avif',
+              image: item.image || '/images/placeholder.webp',
               customers: item.customers || 'No customers yet',
               customerCount: Number(item.customerCount || 0),
               offerId: item.offerId || '',
@@ -147,7 +166,7 @@ export default function MerchantAnalyticsPage() {
               name: item.name || 'Untitled Product',
               type: item.type || 'General',
               likes: Number(item.likes || 0),
-              image: item.image || '/images/deal2.avif',
+              image: item.image || '/images/placeholder.webp',
               customers: item.customers || 'No customers yet',
               customerCount: Number(item.customerCount || 0),
               productId: item.productId || '',
@@ -362,12 +381,12 @@ export default function MerchantAnalyticsPage() {
                 <div className="relative h-40 w-40">
                   <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
                     <circle cx="60" cy="60" r="42" stroke="#e5e7eb" strokeWidth="9" fill="none" />
-                    <circle cx="60" cy="60" r="42" stroke="#2f8f55" strokeWidth="9" strokeDasharray="165 264" fill="none" />
-                    <circle cx="60" cy="60" r="42" stroke="#e3a11f" strokeWidth="9" strokeDasharray="66 264" strokeDashoffset="-170" fill="none" />
-                    <circle cx="60" cy="60" r="42" stroke="#4b5563" strokeWidth="9" strokeDasharray="33 264" strokeDashoffset="-238" fill="none" />
+                    <circle cx="60" cy="60" r="42" stroke="#2f8f55" strokeWidth="9" strokeDasharray={deviceSegments.mobileDash} fill="none" />
+                    <circle cx="60" cy="60" r="42" stroke="#e3a11f" strokeWidth="9" strokeDasharray={deviceSegments.desktopDash} strokeDashoffset={deviceSegments.desktopOffset} fill="none" />
+                    <circle cx="60" cy="60" r="42" stroke="#4b5563" strokeWidth="9" strokeDasharray={deviceSegments.tabletDash} strokeDashoffset={deviceSegments.tabletOffset} fill="none" />
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                    <p className="text-[36px] font-semibold leading-none">100%</p>
+                    <p className="text-[36px] font-semibold leading-none">{deviceSegments.total}%</p>
                     <p className="text-[10px] uppercase tracking-[0.1em] text-[#7d7d7d]">Coverage</p>
                   </div>
                 </div>

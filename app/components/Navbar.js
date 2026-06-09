@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useState, useRef, useEffect, Suspense } from "react";
-import { Search, MapPin, User, X, LogOut, ChevronDown, Shield, ShieldCheck, FileText, Bell, Trophy, Heart } from "lucide-react";
+import { Search, MapPin, User, X, LogOut, ChevronDown, Shield, ShieldCheck, FileText, Bell, Trophy, Heart, Mic } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../context/AuthContext";
 import AuthRequiredModal from "./AuthRequiredModal";
@@ -10,6 +10,7 @@ import { normalizeAppPath } from "../lib/path";
 import { reverseGeocode, searchLocations } from "../services/leafletService";
 
 const CURRENT_LOCATION_STORAGE_KEY = "golo_current_location";
+const MIC_PERMISSION_STORAGE_KEY = "golo_voice_mic_permission";
 
 function getShortLocationLabel(locationDetails) {
   const rawAddress = String(
@@ -30,6 +31,34 @@ function getShortLocationLabel(locationDetails) {
   }
 
   return parts[0] || "Current Location";
+}
+
+function normalizeVoiceTranscript(value = "") {
+  return String(value)
+    .replace(/[.。]+$/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getBestSpeechTranscript(results = []) {
+  return normalizeVoiceTranscript(
+    Array.from(results)
+      .map((result) => {
+        const alternatives = Array.from(result || []);
+        const bestAlternative = alternatives.reduce((best, current) => {
+          if (!best) return current;
+          const currentConfidence = Number(current?.confidence || 0);
+          const bestConfidence = Number(best?.confidence || 0);
+          if (currentConfidence > bestConfidence) return current;
+          if (currentConfidence === bestConfidence && String(current?.transcript || "").length > String(best?.transcript || "").length) {
+            return current;
+          }
+          return best;
+        }, null);
+        return bestAlternative?.transcript || "";
+      })
+      .join(" "),
+  );
 }
 
 function NavbarContent({
@@ -160,11 +189,23 @@ function NavbarContent({
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [voiceModalOpen, setVoiceModalOpen] = useState(false);
+  const [voiceTranscript, setVoiceTranscript] = useState("");
+  const [voiceError, setVoiceError] = useState("");
+  const [isListening, setIsListening] = useState(false);
 
   const dropdownRef = useRef(null);
   const mobileDropdownRef = useRef(null);
   const profileRef = useRef(null);
   const notifRef = useRef(null);
+  const recognitionRef = useRef(null);
+  const voiceTranscriptRef = useRef("");
+  const voiceSearchTimerRef = useRef(null);
+  const voiceFinalizingRef = useRef(false);
+  const voiceRestartCountRef = useRef(0);
+  const voiceSessionRef = useRef(0);
+  const micPermissionCheckedRef = useRef(false);
+  const micPermissionGrantedRef = useRef(false);
   const router = useRouter();
   const pathname = normalizeAppPath(usePathname());
   const { user, isAuthenticated, logout } = useAuth();
@@ -192,6 +233,54 @@ function NavbarContent({
     { name: "Delhi", displayName: "Delhi, India", address: "Delhi, India" },
     { name: "Hyderabad", displayName: "Hyderabad, Telangana, India", address: "Hyderabad, Telangana, India" },
   ];
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof navigator === "undefined") return;
+
+    try {
+      if (window.sessionStorage.getItem(MIC_PERMISSION_STORAGE_KEY) === "granted") {
+        micPermissionGrantedRef.current = true;
+      }
+    } catch {
+      // Ignore storage access issues.
+    }
+
+    let permissionStatus;
+    let cancelled = false;
+
+    const syncPermission = (state) => {
+      if (cancelled) return;
+      micPermissionCheckedRef.current = Boolean(state);
+      micPermissionGrantedRef.current = state === "granted";
+      try {
+        if (state === "granted") {
+          window.sessionStorage.setItem(MIC_PERMISSION_STORAGE_KEY, "granted");
+        } else if (state === "denied") {
+          window.sessionStorage.removeItem(MIC_PERMISSION_STORAGE_KEY);
+        }
+      } catch {
+        // Ignore storage access issues.
+      }
+    };
+
+    navigator.permissions?.query?.({ name: "microphone" })
+      .then((status) => {
+        if (cancelled) return;
+        permissionStatus = status;
+        syncPermission(status.state);
+        status.onchange = () => syncPermission(status.state);
+      })
+      .catch(() => {
+        // Permission API is optional; getUserMedia will request access on first use.
+      });
+
+    return () => {
+      cancelled = true;
+      if (permissionStatus) {
+        permissionStatus.onchange = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -359,6 +448,380 @@ function NavbarContent({
     }
   };
 
+  const clearSearchAndShowLocationOffers = () => {
+    handleSearchChange("");
+    setShowSuggestions(false);
+
+    const fallbackLocation = location || currentLocationLabel || "";
+    const fallbackCoordinates =
+      currentLocationCoordinates &&
+      (!fallbackLocation || fallbackLocation === currentLocationLabel)
+        ? currentLocationCoordinates
+        : null;
+
+    if (!location && currentLocationLabel) {
+      setLocation(currentLocationLabel);
+    }
+
+    runSearch("", fallbackLocation, fallbackCoordinates);
+  };
+
+  const handleSearchInputChange = (value) => {
+    if (!value && searchQuery) {
+      clearSearchAndShowLocationOffers();
+      return;
+    }
+
+    handleSearchChange(value);
+  };
+
+  const cacheMicrophonePermission = (isGranted) => {
+    micPermissionCheckedRef.current = true;
+    micPermissionGrantedRef.current = isGranted;
+
+    try {
+      if (isGranted) {
+        window.sessionStorage.setItem(MIC_PERMISSION_STORAGE_KEY, "granted");
+      } else {
+        window.sessionStorage.removeItem(MIC_PERMISSION_STORAGE_KEY);
+      }
+    } catch {
+      // Session storage may be unavailable in private browsing.
+    }
+  };
+
+  const ensureMicrophonePermission = async (sessionId) => {
+    if (micPermissionGrantedRef.current) return true;
+
+    try {
+      if (window.sessionStorage.getItem(MIC_PERMISSION_STORAGE_KEY) === "granted") {
+        micPermissionGrantedRef.current = true;
+        return true;
+      }
+    } catch {
+      // Ignore storage access issues.
+    }
+
+    try {
+      const permissionStatus = await navigator.permissions?.query?.({ name: "microphone" });
+      if (sessionId !== voiceSessionRef.current) return false;
+
+      if (permissionStatus?.state === "granted") {
+        cacheMicrophonePermission(true);
+        return true;
+      }
+
+      if (permissionStatus?.state === "denied") {
+        cacheMicrophonePermission(false);
+        setIsListening(false);
+        setVoiceError("Microphone is blocked. Please allow mic access from browser site settings.");
+        return false;
+      }
+    } catch {
+      // Some browsers do not support querying microphone permission.
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setIsListening(false);
+      setVoiceError("Microphone access is not available in this browser.");
+      return false;
+    }
+
+    try {
+      if (!micPermissionCheckedRef.current) {
+        setVoiceError("Allow microphone once to start voice search.");
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+
+      stream.getTracks().forEach((track) => track.stop());
+      if (sessionId !== voiceSessionRef.current) return false;
+
+      cacheMicrophonePermission(true);
+      return true;
+    } catch {
+      if (sessionId !== voiceSessionRef.current) return false;
+      cacheMicrophonePermission(false);
+      setIsListening(false);
+      setVoiceError("Please allow microphone access once, then tap Speak Again.");
+      return false;
+    }
+  };
+
+  const stopVoiceListening = () => {
+    if (voiceSearchTimerRef.current) {
+      window.clearTimeout(voiceSearchTimerRef.current);
+      voiceSearchTimerRef.current = null;
+    }
+    try {
+      if (recognitionRef.current) {
+        recognitionRef.current.onstart = null;
+        recognitionRef.current.onaudiostart = null;
+        recognitionRef.current.onsoundstart = null;
+        recognitionRef.current.onspeechstart = null;
+        recognitionRef.current.onspeechend = null;
+        recognitionRef.current.onresult = null;
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.onend = null;
+        recognitionRef.current.onnomatch = null;
+      }
+      recognitionRef.current?.stop?.();
+    } catch {
+      // Speech recognition may already be stopped.
+    }
+    setIsListening(false);
+  };
+
+  const closeVoiceModal = () => {
+    voiceSessionRef.current += 1;
+    stopVoiceListening();
+    voiceFinalizingRef.current = true;
+    setVoiceModalOpen(false);
+  };
+
+  const finalizeVoiceSearch = (spokenValue = voiceTranscriptRef.current, sessionId = voiceSessionRef.current) => {
+    if (sessionId !== voiceSessionRef.current) return;
+    const spokenText = normalizeVoiceTranscript(spokenValue);
+    if (!spokenText || voiceFinalizingRef.current) return;
+
+    voiceFinalizingRef.current = true;
+    setVoiceTranscript(spokenText);
+    handleSearchChange(spokenText);
+    setIsListening(false);
+
+    if (voiceSearchTimerRef.current) {
+      window.clearTimeout(voiceSearchTimerRef.current);
+      voiceSearchTimerRef.current = null;
+    }
+
+    try {
+      recognitionRef.current?.stop?.();
+    } catch {
+      // Ignore if the browser already stopped listening.
+    }
+
+    window.setTimeout(() => {
+      if (sessionId !== voiceSessionRef.current) return;
+      setVoiceModalOpen(false);
+      runSearch(spokenText);
+      voiceFinalizingRef.current = false;
+    }, 360);
+  };
+
+  const startVoiceSearch = async () => {
+    const canUsePublicSearch = pathname === "/" || pathname.startsWith("/nearby-deals");
+    if (!isAuthenticated && !canUsePublicSearch) {
+      setShowAuthPrompt(true);
+      return;
+    }
+
+    if (typeof window === "undefined") return;
+
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    setVoiceModalOpen(true);
+    const sessionId = voiceSessionRef.current + 1;
+    voiceSessionRef.current = sessionId;
+    setVoiceTranscript("");
+    voiceTranscriptRef.current = "";
+    voiceFinalizingRef.current = false;
+    voiceRestartCountRef.current = 0;
+    setIsListening(false);
+    setVoiceError("");
+    if (voiceSearchTimerRef.current) {
+      window.clearTimeout(voiceSearchTimerRef.current);
+      voiceSearchTimerRef.current = null;
+    }
+
+    if (!SpeechRecognition) {
+      setIsListening(false);
+      setVoiceError("Voice search is not supported in this browser. Please try Chrome or Edge.");
+      return;
+    }
+
+    const hasMicrophonePermission = await ensureMicrophonePermission(sessionId);
+    if (sessionId !== voiceSessionRef.current || !hasMicrophonePermission) {
+      return;
+    }
+
+    try {
+      if (recognitionRef.current) {
+        recognitionRef.current.onstart = null;
+        recognitionRef.current.onaudiostart = null;
+        recognitionRef.current.onsoundstart = null;
+        recognitionRef.current.onspeechstart = null;
+        recognitionRef.current.onspeechend = null;
+        recognitionRef.current.onresult = null;
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.onend = null;
+        recognitionRef.current.onnomatch = null;
+        recognitionRef.current.abort?.();
+      }
+    } catch {
+      // Ignore stale recognition cleanup errors.
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = "en-IN";
+    recognition.interimResults = true;
+    recognition.continuous = false;
+    recognition.maxAlternatives = 3;
+
+    const restartRecognition = (delay = 180) => {
+      if (sessionId !== voiceSessionRef.current) return;
+      if (voiceFinalizingRef.current || voiceTranscriptRef.current || voiceRestartCountRef.current >= 1) return;
+      voiceRestartCountRef.current += 1;
+      window.setTimeout(() => {
+        if (sessionId !== voiceSessionRef.current) return;
+        if (voiceFinalizingRef.current || voiceTranscriptRef.current) return;
+        try {
+          setIsListening(true);
+          setVoiceError("Listening again... speak now.");
+          recognition.start();
+        } catch {
+          setVoiceError("Tap Speak Again and try speaking closer to the mic.");
+          setIsListening(false);
+        }
+      }, delay);
+    };
+
+    recognition.onstart = () => {
+      if (sessionId !== voiceSessionRef.current) return;
+      setIsListening(true);
+      setVoiceError("");
+    };
+
+    recognition.onaudiostart = () => {
+      if (sessionId !== voiceSessionRef.current) return;
+      setIsListening(true);
+      setVoiceError("");
+    };
+
+    recognition.onsoundstart = () => {
+      if (sessionId !== voiceSessionRef.current) return;
+      setIsListening(true);
+      setVoiceError("");
+    };
+
+    recognition.onspeechstart = () => {
+      if (sessionId !== voiceSessionRef.current) return;
+      setIsListening(true);
+      if (voiceSearchTimerRef.current) {
+        window.clearTimeout(voiceSearchTimerRef.current);
+        voiceSearchTimerRef.current = null;
+      }
+    };
+
+    recognition.onspeechend = () => {
+      if (sessionId !== voiceSessionRef.current) return;
+      if (voiceTranscriptRef.current && !voiceFinalizingRef.current) {
+        if (voiceSearchTimerRef.current) {
+          window.clearTimeout(voiceSearchTimerRef.current);
+        }
+        voiceSearchTimerRef.current = window.setTimeout(() => {
+          finalizeVoiceSearch(voiceTranscriptRef.current, sessionId);
+        }, 380);
+      }
+    };
+
+    recognition.onresult = (event) => {
+      if (sessionId !== voiceSessionRef.current) return;
+      const spokenText = getBestSpeechTranscript(event.results);
+
+      setVoiceTranscript(spokenText);
+      voiceTranscriptRef.current = spokenText;
+      if (spokenText) {
+        handleSearchChange(spokenText);
+        if (voiceSearchTimerRef.current) {
+          window.clearTimeout(voiceSearchTimerRef.current);
+        }
+        voiceSearchTimerRef.current = window.setTimeout(() => {
+          finalizeVoiceSearch(spokenText, sessionId);
+        }, 650);
+      }
+
+      const hasFinalResult = Array.from(event.results).some((result) => result.isFinal);
+      if (hasFinalResult && spokenText) {
+        finalizeVoiceSearch(spokenText, sessionId);
+      }
+    };
+
+    recognition.onerror = (event) => {
+      if (sessionId !== voiceSessionRef.current) return;
+      setIsListening(false);
+      if ((event?.error === "no-speech" || event?.error === "audio-capture") && !voiceTranscriptRef.current) {
+        setVoiceError("Listening... please speak a little closer to the mic.");
+        restartRecognition(220);
+        return;
+      }
+      if (event?.error === "aborted") {
+        return;
+      }
+      const errorMessage =
+        event?.error === "not-allowed"
+          ? "Microphone permission is blocked. Please allow mic access and try again."
+          : "Could not hear clearly. Please try speaking again.";
+      setVoiceError(errorMessage);
+    };
+
+    recognition.onend = () => {
+      if (sessionId !== voiceSessionRef.current) return;
+      setIsListening(false);
+      if (voiceTranscriptRef.current && !voiceFinalizingRef.current) {
+        voiceSearchTimerRef.current = window.setTimeout(() => {
+          finalizeVoiceSearch(voiceTranscriptRef.current, sessionId);
+        }, 250);
+      } else if (!voiceFinalizingRef.current && !voiceTranscriptRef.current) {
+        restartRecognition(220);
+      }
+    };
+
+    recognition.onnomatch = () => {
+      if (sessionId !== voiceSessionRef.current) return;
+      if (!voiceTranscriptRef.current) {
+        setVoiceError("I heard something but couldn't understand it. Please speak clearly.");
+        restartRecognition(250);
+      }
+    };
+
+    recognitionRef.current = recognition;
+    try {
+      setIsListening(true);
+      setVoiceError("Listening...");
+      recognition.start();
+    } catch {
+      setIsListening(false);
+      setVoiceError("Could not start microphone. Please close this popup and try again.");
+    }
+  };
+
+  const searchVoiceTranscript = () => {
+    const spokenText = normalizeVoiceTranscript(voiceTranscript);
+    if (!spokenText) return;
+    finalizeVoiceSearch(spokenText);
+  };
+
+  useEffect(() => {
+    return () => {
+      voiceSessionRef.current += 1;
+      if (voiceSearchTimerRef.current) {
+        window.clearTimeout(voiceSearchTimerRef.current);
+      }
+      try {
+        recognitionRef.current?.abort?.();
+      } catch {
+        // Ignore cleanup errors.
+      }
+    };
+  }, []);
+
   const openMobileLocationPicker = () => {
     if (!isAuthenticated) {
       setShowAuthPrompt(true);
@@ -436,7 +899,7 @@ function NavbarContent({
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => handleSearchChange(e.target.value)}
+              onChange={(e) => handleSearchInputChange(e.target.value)}
               onKeyDown={handleSearch}
               onFocus={() => {
                 if (!isAuthenticated) setShowAuthPrompt(true);
@@ -446,11 +909,21 @@ function NavbarContent({
               readOnly={!isAuthenticated}
             />
 
+            <button
+              type="button"
+              onClick={startVoiceSearch}
+              className="ml-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[#157A4F] transition hover:bg-[#edf8f2]"
+              aria-label="Search by voice"
+            >
+              <Mic size={17} />
+            </button>
+
             {searchQuery && (
               <button
-                onClick={() => handleSearchChange("")}
+                onClick={clearSearchAndShowLocationOffers}
                 className="ml-2 transition opacity-70"
                 style={{ color: "var(--color-text-muted)" }}
+                aria-label="Clear search"
               >
                 <X size={16} />
               </button>
@@ -774,7 +1247,7 @@ function NavbarContent({
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => handleSearchChange(e.target.value)}
+                onChange={(e) => handleSearchInputChange(e.target.value)}
                 onKeyDown={handleSearch}
                 onFocus={() => {
                   if (!isAuthenticated) setShowAuthPrompt(true);
@@ -783,10 +1256,18 @@ function NavbarContent({
                 className="min-w-0 flex-1 bg-transparent text-[15px] font-medium text-[#1f2933] outline-none placeholder:text-[#85878b]"
                 readOnly={!isAuthenticated}
               />
+              <button
+                type="button"
+                onClick={startVoiceSearch}
+                className="ml-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#f7fffb] text-[#157A4F]"
+                aria-label="Search by voice"
+              >
+                <Mic size={16} />
+              </button>
               {searchQuery && (
                 <button
                   type="button"
-                  onClick={() => handleSearchChange("")}
+                  onClick={clearSearchAndShowLocationOffers}
                   className="ml-1 text-gray-400"
                   aria-label="Clear search"
                 >
@@ -805,7 +1286,7 @@ function NavbarContent({
                   event.preventDefault();
                   openMobileLocationPicker();
                 }}
-                className="flex h-9 min-w-[96px] max-w-[132px] items-center rounded-full bg-[#f7fffb] px-3 text-left"
+                className="flex h-9 min-w-[84px] max-w-[116px] items-center rounded-full bg-[#f7fffb] px-2.5 text-left"
                 aria-label="Change location"
               >
                 <MapPin size={16} strokeWidth={2.4} className="mr-1.5 shrink-0 text-[#ff7a1a]" />
@@ -858,6 +1339,119 @@ function NavbarContent({
           </Link>
         </nav>
       </header>
+
+      {voiceModalOpen && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/45 px-4">
+          <style>{`
+            @keyframes voice-wave {
+              0%, 100% { transform: scaleY(0.35); opacity: 0.45; }
+              45% { transform: scaleY(1); opacity: 1; }
+            }
+            @keyframes voice-ring {
+              0% { transform: scale(0.86); opacity: 0.42; }
+              100% { transform: scale(1.35); opacity: 0; }
+            }
+            .voice-wave-bar {
+              animation: voice-wave 0.75s ease-in-out infinite;
+              transform-origin: center;
+            }
+            .voice-ring {
+              animation: voice-ring 1.25s ease-out infinite;
+            }
+          `}</style>
+          <div className="w-full max-w-[420px] rounded-[26px] bg-white px-6 py-7 text-center shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
+            <div className="mx-auto flex items-center justify-center gap-3">
+              <div className={`flex h-14 w-10 items-center justify-end gap-1 transition-opacity ${isListening ? "opacity-100" : "opacity-0"}`}>
+                {[0, 1, 2, 3].map((item) => (
+                  <span
+                    key={`left-${item}`}
+                    className="voice-wave-bar block w-1.5 rounded-full bg-[#efb02e]"
+                    style={{
+                      height: `${18 + item * 6}px`,
+                      animationDelay: `${item * 0.09}s`,
+                    }}
+                  />
+                ))}
+              </div>
+
+              <div className={`relative flex h-20 w-20 items-center justify-center rounded-full transition ${isListening ? "bg-[#fff3dc] shadow-[0_0_0_12px_rgba(239,176,46,0.14)]" : "bg-[#fff3dc]"}`}>
+                {isListening ? (
+                  <>
+                    <span className="voice-ring absolute inset-2 rounded-full border-2 border-[#efb02e]" />
+                    <span className="voice-ring absolute inset-1 rounded-full border border-[#157A4F]" style={{ animationDelay: "0.35s" }} />
+                  </>
+                ) : null}
+                <div className={`relative z-10 flex h-14 w-14 items-center justify-center rounded-full bg-[#efb02e] text-white shadow-lg transition ${isListening ? "scale-110" : "scale-100"}`}>
+                  <Mic size={28} />
+                </div>
+              </div>
+
+              <div className={`flex h-14 w-10 items-center justify-start gap-1 transition-opacity ${isListening ? "opacity-100" : "opacity-0"}`}>
+                {[0, 1, 2, 3].map((item) => (
+                  <span
+                    key={`right-${item}`}
+                    className="voice-wave-bar block w-1.5 rounded-full bg-[#157A4F]"
+                    style={{
+                      height: `${36 - item * 6}px`,
+                      animationDelay: `${item * 0.09 + 0.12}s`,
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <h2 className="mt-5 text-[22px] font-semibold text-[#1f2933]">
+              {isListening ? "Listening..." : "Voice Search"}
+            </h2>
+            <p className="mt-2 text-[13px] leading-5 text-[#6b7280]">
+              {voiceTranscript
+                ? "Your search is appearing live in the search bar."
+                : "Speak what you want to search."}
+            </p>
+
+            <div className="mt-5 min-h-[54px] rounded-[16px] border border-[#ececec] bg-[#fafafa] px-4 py-3 text-left">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-[#9ca3af]">
+                {isListening ? "Live transcript" : "Recognized words"}
+              </p>
+              <p className="mt-1 min-h-6 text-[16px] font-semibold text-[#1f2933] transition-all">
+                {voiceTranscript || (isListening ? "Start speaking..." : "Nothing captured yet")}
+                {isListening && !voiceTranscript ? <span className="ml-1 inline-block animate-pulse text-[#efb02e]">●</span> : null}
+              </p>
+            </div>
+
+            {voiceError ? (
+              <p className="mt-3 rounded-[12px] bg-[#fff0f0] px-3 py-2 text-[12px] font-medium text-[#d63f3f]">
+                {voiceError}
+              </p>
+            ) : null}
+
+            <div className="mt-6 flex items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={closeVoiceModal}
+                className="h-10 rounded-full border border-[#e5e7eb] bg-white px-5 text-[13px] font-semibold text-[#4b5563]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={startVoiceSearch}
+                className="h-10 rounded-full bg-[#fff7e2] px-5 text-[13px] font-semibold text-[#b77905]"
+              >
+                Speak Again
+              </button>
+              <button
+                type="button"
+                onClick={searchVoiceTranscript}
+                disabled={!voiceTranscript.trim()}
+                className="h-10 rounded-full bg-[#157A4F] px-5 text-[13px] font-semibold text-white disabled:cursor-not-allowed disabled:bg-[#a7c8b9]"
+              >
+                Search
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <AuthRequiredModal
         isOpen={showAuthPrompt}

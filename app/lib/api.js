@@ -1313,11 +1313,12 @@ export async function updateMerchantProfile(profileData) {
 /**
  * Claim an offer and receive a voucher
  * @param {string} offerId - The offer ID to claim
+ * @param {object} claimLocation - Optional current location captured at claim time
  */
-export async function claimOffer(offerId) {
+export async function claimOffer(offerId, claimLocation = {}) {
     return apiClient('/vouchers/claim', {
         method: 'POST',
-        body: JSON.stringify({ offerId }),
+        body: JSON.stringify({ offerId, ...claimLocation }),
     });
 }
 
